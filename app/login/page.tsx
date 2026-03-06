@@ -35,9 +35,9 @@ export default function LoginPage() {
     try {
       // For demo: use any email with password "password"
       // Real users:
-      // Donor: manager@pizzapalace.com
-      // Volunteer: marcus@example.com
-      // NGO: contact@hopecenter.org
+      // Donor: manager@haldirams-nagpur.com
+      // Volunteer: aarav@example.com
+      // NGO: contact@nagpursevasadan.org
       // Admin: admin@sustainbite.com
       await login(email, 'password', role);
       router.push('/');
@@ -127,9 +127,9 @@ export default function LoginPage() {
             <div className="mt-6 space-y-2 text-sm text-muted-foreground">
               <p className="font-semibold">Demo Accounts:</p>
               <ul className="space-y-1 text-xs">
-                <li>Donor: manager@pizzapalace.com</li>
-                <li>Volunteer: marcus@example.com</li>
-                <li>NGO: contact@hopecenter.org</li>
+                <li>Donor: manager@haldirams-nagpur.com</li>
+                <li>Volunteer: aarav@example.com</li>
+                <li>NGO: contact@nagpursevasadan.org</li>
                 <li>Admin: admin@sustainbite.com</li>
               </ul>
             </div>
