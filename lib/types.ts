@@ -1,0 +1,95 @@
+// User Roles
+export type UserRole = 'donor' | 'volunteer' | 'ngo' | 'admin';
+
+// User Status
+export type VerifiedStatus = 'unverified' | 'verified' | 'banned';
+
+// Donation Status
+export type DonationStatus = 'available' | 'assigned' | 'picked' | 'delivered';
+
+// Food Type
+export type FoodType = 'human_veg' | 'human_nonveg' | 'animal_safe';
+
+// NGO Hunger Status
+export type HungerStatus = 'critical' | 'open' | 'full';
+
+// User Record
+export interface User {
+  id: string;
+  role: UserRole;
+  name: string;
+  email: string;
+  phone: string;
+  verified_status: VerifiedStatus;
+  points: number;
+  green_score: number;
+  created_at: string;
+  avatar_url?: string;
+  address?: string;
+  organization_name?: string;
+}
+
+// Donation Record
+export interface Donation {
+  id: string;
+  donor_id: string;
+  food_type: FoodType;
+  food_name: string;
+  quantity_kg: number;
+  status: DonationStatus;
+  volunteer_id?: string;
+  ngo_id?: string;
+  pickup_address: string;
+  delivery_address?: string;
+  expiry_time: string;
+  image_url?: string;
+  is_spicy: boolean;
+  created_at: string;
+  picked_at?: string;
+  delivered_at?: string;
+}
+
+// NGO Request Record
+export interface NGORequest {
+  id: string;
+  ngo_id: string;
+  hunger_status: HungerStatus;
+  people_count: number;
+  location: string;
+  dietary_restrictions?: string[];
+  created_at: string;
+}
+
+// Certificate Record
+export interface Certificate {
+  id: string;
+  certificate_id: string; // UUID for public verification
+  user_id: string;
+  issued_date: string;
+  milestone_name: string;
+  total_kg_donated: number;
+  badge_color: 'bronze' | 'silver' | 'gold' | 'platinum';
+}
+
+// Milestone Thresholds
+export const CERTIFICATE_MILESTONES = {
+  bronze: { kg: 50, name: 'Bronze Contributor' },
+  silver: { kg: 100, name: 'Silver Champion' },
+  gold: { kg: 250, name: 'Gold Hero' },
+  platinum: { kg: 500, name: 'Platinum Legend' },
+};
+
+// Session/Auth State
+export interface AuthSession {
+  user: User;
+  token: string;
+  expiresAt: number;
+}
+
+// Context Types
+export interface AuthContextType {
+  session: AuthSession | null;
+  login: (email: string, password: string, role: UserRole) => Promise<void>;
+  logout: () => void;
+  isLoading: boolean;
+}
