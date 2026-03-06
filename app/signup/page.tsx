@@ -17,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { UserRole } from '@/lib/types';
 import { Leaf, Mail, Lock, User, Building2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -37,11 +38,12 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <nav className="border-b border-border">
-        <div className="container h-16 flex items-center">
+        <div className="container h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-bold text-xl text-primary">
             <Leaf className="h-6 w-6" />
             SustainBite
           </Link>
+          <ThemeToggle />
         </div>
       </nav>
 

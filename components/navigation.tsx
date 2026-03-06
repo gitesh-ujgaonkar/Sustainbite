@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Leaf, LogOut, Settings, Home } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export function Navigation() {
   const { user, logout, isAuthenticated } = useAuth();
@@ -47,7 +48,8 @@ export function Navigation() {
         </Link>
 
         {/* Nav Links */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
           {isAuthenticated ? (
             <>
               <Link href={getDashboardRoute()} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
