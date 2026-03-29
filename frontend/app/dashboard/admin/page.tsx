@@ -50,6 +50,7 @@ interface PendingVolunteer {
   green_points: number;
   approval_status: string;
   id_document_url: string | null;
+  kyc_remarks?: string | null;
   created_at: string | null;
 }
 
@@ -195,7 +196,7 @@ export default function AdminDashboardPage() {
   };
 
   // ── Approve/Reject Volunteer ───────────────────────────────
-  const handleApproval = async (volunteerId: string, newStatus: 'APPROVED' | 'REJECTED') => {
+  const handleApproval = async (volunteerId: string, newStatus: 'APPROVED' | 'REJECTED', reason?: string) => {
     setLoadingStates(prev => ({ ...prev, [volunteerId]: true }));
 
     try {
@@ -205,7 +206,7 @@ export default function AdminDashboardPage() {
           'Content-Type': 'application/json',
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, reason }),
       });
 
       if (!response.ok) {
@@ -487,7 +488,16 @@ export default function AdminDashboardPage() {
                             size="sm"
                             variant="destructive"
                             className="flex-1"
-                            onClick={() => handleApproval(volunteer.id, 'REJECTED')}
+                            onClick={() => {
+                              const reason = window.prompt("Enter reason for rejection (this will be shown to the volunteer):");
+                              if (reason !== null) {
+                                if (reason.trim() === "") {
+                                  alert("A rejection reason is required.");
+                                  return;
+                                }
+                                handleApproval(volunteer.id, 'REJECTED', reason);
+                              }
+                            }}
                             disabled={loadingStates[volunteer.id]}
                           >
                             {loadingStates[volunteer.id] ? (

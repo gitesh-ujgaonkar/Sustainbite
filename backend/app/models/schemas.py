@@ -39,6 +39,7 @@ class VolunteerResponse(BaseModel):
     green_points: int = 0
     approval_status: str = "PENDING"
     id_document_url: str | None = None
+    kyc_remarks: str | None = None
     created_at: str | None = None
 
 

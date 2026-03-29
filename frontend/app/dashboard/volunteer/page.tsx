@@ -25,6 +25,7 @@ interface VolunteerProfile {
   id_document_url: string | null;
   green_points: number;
   is_available: boolean;
+  kyc_remarks?: string | null;
 }
 
 interface Delivery {
@@ -73,7 +74,7 @@ export default function VolunteerDashboardPage() {
     try {
       const { data, error } = await supabase
         .from('volunteers')
-        .select('id, name, approval_status, id_document_url, green_points, is_available')
+        .select('id, name, approval_status, id_document_url, green_points, is_available, kyc_remarks')
         .eq('id', userId)
         .single();
 
@@ -98,7 +99,7 @@ export default function VolunteerDashboardPage() {
         .order('created_at', { ascending: false })
         .limit(20);
 
-      setAvailableDeliveries(available || []);
+      setAvailableDeliveries((available as any) || []);
 
       // Fetch my active tasks (assigned to me, not delivered)
       const { data: active } = await supabase
@@ -108,7 +109,7 @@ export default function VolunteerDashboardPage() {
         .in('status', ['ASSIGNED', 'PICKED'])
         .order('created_at', { ascending: false });
 
-      setMyActiveTasks(active || []);
+      setMyActiveTasks((active as any) || []);
 
       // Count completed deliveries
       const { count } = await supabase
@@ -277,6 +278,11 @@ export default function VolunteerDashboardPage() {
               <AlertDescription className="ml-2">
                 <span className="font-semibold">Verification Rejected —</span>{' '}
                 Please re-upload a valid government-issued ID below.
+                {volunteerProfile?.kyc_remarks && (
+                  <div className="mt-3 p-3 bg-red-100 dark:bg-red-900/40 rounded-md border border-red-200 dark:border-red-800 text-sm">
+                    <strong>Admin Remarks:</strong> {volunteerProfile.kyc_remarks}
+                  </div>
+                )}
               </AlertDescription>
             </Alert>
             <VolunteerKYCUpload

@@ -169,7 +169,7 @@ async def get_pending_volunteers(admin: dict = Depends(verify_admin_token)):
 
     result = (
         supabase.table("volunteers")
-        .select("id, name, phone, is_available, green_points, approval_status, id_document_url, created_at")
+        .select("id, name, phone, is_available, green_points, approval_status, id_document_url, kyc_remarks, created_at")
         .eq("approval_status", "PENDING")
         .order("created_at", desc=True)
         .execute()
@@ -223,6 +223,9 @@ async def update_volunteer_status(
 
     # Update status
     update_data = {"approval_status": body.status}
+    if body.reason is not None:
+        update_data["kyc_remarks"] = body.reason
+
     result = (
         supabase.table("volunteers")
         .update(update_data)
@@ -245,6 +248,7 @@ async def update_volunteer_status(
         green_points=updated.get("green_points", 0),
         approval_status=updated.get("approval_status", "PENDING"),
         id_document_url=updated.get("id_document_url"),
+        kyc_remarks=updated.get("kyc_remarks"),
         created_at=updated.get("created_at"),
     )
 

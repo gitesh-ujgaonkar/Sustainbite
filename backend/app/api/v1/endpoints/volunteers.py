@@ -95,6 +95,7 @@ async def confirm_upload(body: ConfirmUploadRequest):
         .update({
             "id_document_url": body.storage_path,
             "approval_status": "PENDING",
+            "kyc_remarks": None,
         })
         .eq("id", body.volunteer_id)
         .execute()
@@ -196,6 +197,7 @@ async def upload_volunteer_id(
     supabase.table("volunteers").update({
         "id_document_url": storage_path,
         "approval_status": "PENDING",
+        "kyc_remarks": None,
     }).eq("id", volunteer_id).execute()
 
     return UploadResponse(
@@ -220,7 +222,7 @@ async def get_volunteer_status(volunteer_id: str):
         supabase.table("volunteers")
         .select(
             "id, name, phone, is_available, green_points, "
-            "approval_status, id_document_url, created_at"
+            "approval_status, id_document_url, kyc_remarks, created_at"
         )
         .eq("id", volunteer_id)
         .execute()
