@@ -11,14 +11,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Leaf, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { UserRole } from '@/lib/types';
+
+// ── Role → Dashboard Route Map ──────────────────────────────
+const DASHBOARD_ROUTES: Record<UserRole, string> = {
+  donor: '/dashboard/donor',
+  volunteer: '/dashboard/volunteer',
+  ngo: '/dashboard/ngo',
+  admin: '/dashboard/admin',
+};
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, isLoading } = useAuth();
+  const { login, user, isLoading } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,11 +41,35 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      router.push('/');
+
+      // After login, user.role is set by the auth provider's role detection.
+      // We need to read it from the updated session — the login() function
+      // in providers.tsx builds the session synchronously after signIn.
+      // However, React state update is async, so we get the role from the
+      // provider by waiting a tick for the state to propagate.
+      setIsRedirecting(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
+      const message = err instanceof Error ? err.message : 'Login failed.';
+
+      // Map common Supabase errors to user-friendly messages
+      if (message.toLowerCase().includes('invalid login credentials')) {
+        setError('Invalid email or password. Please try again.');
+      } else if (message.toLowerCase().includes('email not confirmed')) {
+        setError('Please verify your email address before logging in. Check your inbox.');
+      } else {
+        setError(message);
+      }
     }
   };
+
+  // ── Smart Redirect After Login ─────────────────────────────
+  // Once the auth state updates with the user's role, redirect
+  React.useEffect(() => {
+    if (isRedirecting && user?.role) {
+      const dashboardRoute = DASHBOARD_ROUTES[user.role] || '/';
+      router.push(dashboardRoute);
+    }
+  }, [isRedirecting, user, router]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -77,7 +111,7 @@ export default function LoginPage() {
                     className="pl-10"
                     required
                     autoComplete="email"
-                    disabled={isLoading}
+                    disabled={isLoading || isRedirecting}
                   />
                 </div>
               </div>
@@ -95,7 +129,7 @@ export default function LoginPage() {
                     className="pl-10"
                     required
                     autoComplete="current-password"
-                    disabled={isLoading}
+                    disabled={isLoading || isRedirecting}
                   />
                 </div>
               </div>
@@ -103,9 +137,14 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-primary/90"
-                disabled={isLoading}
+                disabled={isLoading || isRedirecting}
               >
-                {isLoading ? (
+                {isRedirecting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Redirecting to dashboard...
+                  </>
+                ) : isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Signing in...

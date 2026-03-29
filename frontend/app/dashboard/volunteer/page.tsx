@@ -5,20 +5,19 @@ import { useAuth } from '@/app/providers';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Navigation } from '@/components/navigation';
-import { BountyBoard } from '@/components/bounty-board';
-import { ActiveTasks } from '@/components/active-tasks';
 import { VolunteerKYCUpload } from '@/components/volunteer-kyc-upload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { db } from '@/lib/db_mock';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Leaf, Zap, Trophy, TrendingUp, ShieldAlert, ShieldCheck,
-  ShieldX, Ban, Upload, Clock,
+  ShieldX, Ban, Clock, MapPin, Package, CheckCircle2,
+  Loader2, Bell,
 } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 
-// Volunteer profile from Supabase
+// ── Types ────────────────────────────────────────────────────
 interface VolunteerProfile {
   id: string;
   name: string;
@@ -28,22 +27,38 @@ interface VolunteerProfile {
   is_available: boolean;
 }
 
+interface Delivery {
+  id: string;
+  food_type: string;
+  quantity_kg: number;
+  status: string;
+  created_at: string;
+  updated_at: string | null;
+  volunteer_id: string | null;
+  restaurant_id: string | null;
+  ngo_id: string | null;
+  restaurants?: { name: string } | null;
+  ngos?: { name: string } | null;
+}
+
 export default function VolunteerDashboardPage() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
-  // Real DB state
+  // Real Supabase data
   const [volunteerProfile, setVolunteerProfile] = useState<VolunteerProfile | null>(null);
+  const [availableDeliveries, setAvailableDeliveries] = useState<Delivery[]>([]);
+  const [myActiveTasks, setMyActiveTasks] = useState<Delivery[]>([]);
+  const [completedCount, setCompletedCount] = useState(0);
+
+  // Loading states
   const [profileLoading, setProfileLoading] = useState(true);
+  const [deliveriesLoading, setDeliveriesLoading] = useState(true);
 
-  // Dashboard data (still from mock for demo)
-  const [stats, setStats] = useState<any>(null);
-  const [donations, setDonations] = useState<any[]>([]);
-
-  // Toast message for disabled button clicks
+  // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Derived status flags
+  // Derived status
   const approvalStatus = volunteerProfile?.approval_status || 'PENDING';
   const hasUploadedId = !!volunteerProfile?.id_document_url;
   const isApproved = approvalStatus === 'APPROVED';
@@ -52,7 +67,7 @@ export default function VolunteerDashboardPage() {
   const isBanned = approvalStatus === 'BANNED';
   const canAcceptTasks = isApproved;
 
-  // ── Fetch Volunteer Profile from Supabase ──────────────────
+  // ── Fetch Volunteer Profile ────────────────────────────────
   const fetchProfile = useCallback(async (userId: string) => {
     setProfileLoading(true);
     try {
@@ -62,44 +77,78 @@ export default function VolunteerDashboardPage() {
         .eq('id', userId)
         .single();
 
-      if (error) {
-        console.error('[Volunteer] Profile fetch error:', error);
-        return;
-      }
-
-      setVolunteerProfile(data);
+      if (!error && data) setVolunteerProfile(data);
     } catch (err) {
-      console.error('[Volunteer] Failed to fetch profile:', err);
+      console.error('[Volunteer] Profile fetch error:', err);
     } finally {
       setProfileLoading(false);
     }
   }, []);
 
+  // ── Fetch Real Deliveries from Supabase ────────────────────
+  const fetchDeliveries = useCallback(async (userId: string) => {
+    setDeliveriesLoading(true);
+    try {
+      // Fetch available deliveries (not yet claimed)
+      const { data: available } = await supabase
+        .from('deliveries')
+        .select('id, food_type, quantity_kg, status, created_at, updated_at, volunteer_id, restaurant_id, ngo_id, restaurants(name), ngos(name)')
+        .eq('status', 'AVAILABLE')
+        .is('volunteer_id', null)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      setAvailableDeliveries(available || []);
+
+      // Fetch my active tasks (assigned to me, not delivered)
+      const { data: active } = await supabase
+        .from('deliveries')
+        .select('id, food_type, quantity_kg, status, created_at, updated_at, restaurant_id, ngo_id, restaurants(name), ngos(name)')
+        .eq('volunteer_id', userId)
+        .in('status', ['ASSIGNED', 'PICKED'])
+        .order('created_at', { ascending: false });
+
+      setMyActiveTasks(active || []);
+
+      // Count completed deliveries
+      const { count } = await supabase
+        .from('deliveries')
+        .select('id', { count: 'exact', head: true })
+        .eq('volunteer_id', userId)
+        .eq('status', 'DELIVERED');
+
+      setCompletedCount(count || 0);
+    } catch (err) {
+      console.error('[Volunteer] Deliveries fetch error:', err);
+    } finally {
+      setDeliveriesLoading(false);
+    }
+  }, []);
+
+  // ── Initialize ─────────────────────────────────────────────
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       router.push('/login');
       return;
     }
-
     if (user && user.role !== 'volunteer') {
       router.push('/');
       return;
     }
-
     if (user) {
-      // Fetch real profile from Supabase
       fetchProfile(user.id);
-
-      // Load demo data for stats/donations display
-      const userStats = db.getUserStats(user.id);
-      setStats(userStats);
-      const allDonations = db.getActiveDonations();
-      setDonations(allDonations);
+      fetchDeliveries(user.id);
     }
-  }, [user, isAuthenticated, isLoading, router, fetchProfile]);
+  }, [user, isAuthenticated, authLoading, router, fetchProfile, fetchDeliveries]);
 
-  // ── Handle Accept Delivery (with gate) ─────────────────────
-  const handleAcceptDelivery = (donationId: string) => {
+  // ── Toast ──────────────────────────────────────────────────
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 5000);
+  };
+
+  // ── Handle Accept Delivery ─────────────────────────────────
+  const handleAcceptDelivery = async (deliveryId: string) => {
     if (!canAcceptTasks) {
       if (!hasUploadedId) {
         showToast('Please upload a valid Government ID before accepting tasks.');
@@ -112,29 +161,42 @@ export default function VolunteerDashboardPage() {
       }
       return;
     }
-    console.log('[Volunteer] Delivery accepted:', donationId);
-  };
 
-  const handleCompleteTask = (donationId: string) => {
-    console.log('[Volunteer] Delivery completed:', donationId);
-  };
+    // Call backend to claim
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-  // ── Toast Notification ─────────────────────────────────────
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => setToastMessage(null), 5000);
-  };
+      const res = await fetch(`${API_BASE}/api/v1/deliveries/claim`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ delivery_id: deliveryId }),
+      });
 
-  // ── KYC Upload Success Handler ─────────────────────────────
-  const handleUploadComplete = (storagePath: string) => {
-    // Re-fetch profile to get updated status
-    if (user) {
-      fetchProfile(user.id);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to claim delivery.');
+      }
+
+      showToast('Delivery claimed successfully! Check your Active Tasks.');
+      // Refresh data
+      if (user) fetchDeliveries(user.id);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to claim delivery.');
     }
   };
 
-  // ── Loading State ──────────────────────────────────────────
-  if (isLoading || profileLoading) {
+  // ── KYC Upload Success ─────────────────────────────────────
+  const handleUploadComplete = () => {
+    if (user) fetchProfile(user.id);
+  };
+
+  // ── Loading ────────────────────────────────────────────────
+  if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center gap-4">
@@ -145,19 +207,17 @@ export default function VolunteerDashboardPage() {
     );
   }
 
-  if (!isAuthenticated || !user || user.role !== 'volunteer') {
-    return null;
-  }
+  if (!isAuthenticated || !user || user.role !== 'volunteer') return null;
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
 
-      {/* ── Toast Notification ─────────────────────────────── */}
+      {/* Toast */}
       {toastMessage && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 max-w-lg animate-in fade-in slide-in-from-top-2 duration-300">
           <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/90 shadow-lg">
-            <Clock className="h-4 w-4 text-amber-600" />
+            <Bell className="h-4 w-4 text-amber-600" />
             <AlertDescription className="ml-2 text-amber-800 dark:text-amber-200 text-sm">
               {toastMessage}
             </AlertDescription>
@@ -167,7 +227,7 @@ export default function VolunteerDashboardPage() {
 
       <div className="container py-8">
 
-        {/* ── KYC: No ID Uploaded — Action Required ──────── */}
+        {/* ── KYC: No ID Uploaded ─────────────────────── */}
         {!hasUploadedId && !isApproved && (
           <div className="mb-6">
             <Alert className="mb-4 border-red-500/50 bg-red-50 dark:bg-red-950/30">
@@ -175,39 +235,36 @@ export default function VolunteerDashboardPage() {
               <AlertDescription className="ml-2 text-red-800 dark:text-red-200">
                 <span className="font-bold text-base">⚠️ Action Required:</span>{' '}
                 Please upload a valid Government ID to activate your account and start rescuing food.
-                Until verified, all task actions are disabled.
               </AlertDescription>
             </Alert>
             <VolunteerKYCUpload
               volunteerId={user.id}
               volunteerName={user.name}
-              currentDocumentUrl={volunteerProfile?.id_document_url}
+              currentDocumentUrl={null}
               approvalStatus={approvalStatus}
               onUploadComplete={handleUploadComplete}
             />
           </div>
         )}
 
-        {/* ── KYC: ID Uploaded, Pending Review ──────────── */}
+        {/* ── KYC: Pending Review ─────────────────────── */}
         {hasUploadedId && isPending && (
           <Alert className="mb-6 border-amber-500/50 bg-amber-50 dark:bg-amber-950/30">
             <Clock className="h-5 w-5 text-amber-600" />
             <AlertDescription className="ml-2 text-amber-800 dark:text-amber-200">
               <span className="font-semibold">Account Under Review —</span>{' '}
-              Your identity document has been submitted and is being reviewed by an Administrator.
-              You can view available deliveries below but cannot accept tasks until verified.
-              This usually takes 24–48 hours.
+              Your ID has been submitted. You can browse available deliveries but cannot accept tasks until verified (24–48 hours).
             </AlertDescription>
           </Alert>
         )}
 
-        {/* ── KYC: Approved ────────────────────────────── */}
+        {/* ── KYC: Approved ───────────────────────────── */}
         {isApproved && (
           <Alert className="mb-6 border-green-500/30 bg-green-50/50 dark:bg-green-950/20">
             <ShieldCheck className="h-5 w-5 text-green-600" />
             <AlertDescription className="ml-2 text-green-800 dark:text-green-200">
               <span className="font-semibold">Identity Verified ✓</span>{' '}
-              You are fully approved. Accept deliveries and start making an impact!
+              You are fully approved. Accept deliveries and make an impact!
             </AlertDescription>
           </Alert>
         )}
@@ -219,8 +276,7 @@ export default function VolunteerDashboardPage() {
               <ShieldX className="h-5 w-5" />
               <AlertDescription className="ml-2">
                 <span className="font-semibold">Verification Rejected —</span>{' '}
-                Your identity document was not accepted. Please re-upload a valid
-                government-issued ID below.
+                Please re-upload a valid government-issued ID below.
               </AlertDescription>
             </Alert>
             <VolunteerKYCUpload
@@ -239,13 +295,12 @@ export default function VolunteerDashboardPage() {
             <Ban className="h-5 w-5" />
             <AlertDescription className="ml-2">
               <span className="font-semibold">Account Suspended —</span>{' '}
-              Your account has been suspended by an administrator.
               Please contact support for more information.
             </AlertDescription>
           </Alert>
         )}
 
-        {/* ── Header ──────────────────────────────────── */}
+        {/* ── Header + Stats ──────────────────────────── */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -267,19 +322,15 @@ export default function VolunteerDashboardPage() {
             </Link>
           </div>
 
-          {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-primary" />
-                  Deliveries
+                  <Trophy className="h-4 w-4 text-primary" /> Deliveries
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">
-                  {donations.filter(d => d.status === 'delivered' && d.volunteer_id === user.id).length}
-                </div>
+                <div className="text-3xl font-bold">{completedCount}</div>
                 <p className="text-xs text-muted-foreground mt-1">Completed</p>
               </CardContent>
             </Card>
@@ -287,14 +338,11 @@ export default function VolunteerDashboardPage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-secondary" />
-                  Active
+                  <Zap className="h-4 w-4 text-secondary" /> Active
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-secondary">
-                  {donations.filter(d => (d.status === 'assigned' || d.status === 'picked') && d.volunteer_id === user.id).length}
-                </div>
+                <div className="text-3xl font-bold text-secondary">{myActiveTasks.length}</div>
                 <p className="text-xs text-muted-foreground mt-1">Tasks</p>
               </CardContent>
             </Card>
@@ -302,14 +350,11 @@ export default function VolunteerDashboardPage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-primary" />
-                  Green Points
+                  <TrendingUp className="h-4 w-4 text-primary" /> Green Points
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">
-                  {volunteerProfile?.green_points || stats?.points || 0}
-                </div>
+                <div className="text-3xl font-bold">{volunteerProfile?.green_points || 0}</div>
                 <p className="text-xs text-muted-foreground mt-1">Earned</p>
               </CardContent>
             </Card>
@@ -317,43 +362,152 @@ export default function VolunteerDashboardPage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Leaf className="h-4 w-4 text-secondary" />
-                  Impact
+                  <Package className="h-4 w-4 text-secondary" /> Available
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-secondary">{stats?.totalDonated || 0}</div>
-                <p className="text-xs text-muted-foreground mt-1">kg delivered</p>
+                <div className="text-3xl font-bold text-secondary">{availableDeliveries.length}</div>
+                <p className="text-xs text-muted-foreground mt-1">Pickups</p>
               </CardContent>
             </Card>
           </div>
         </div>
 
-        {/* ── Main Content Grid (Read-only when not approved) ── */}
-        <div className="relative">
-          {/* Disabled overlay for non-approved users */}
-          {!canAcceptTasks && (
-            <div className="absolute -top-2 -left-2 -right-2 -bottom-2 z-10 rounded-lg pointer-events-none" />
-          )}
+        {/* ── Main Content ────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left: Bounty Board — always visible, buttons gated */}
-            <div className="lg:col-span-2">
-              <BountyBoard
-                donations={donations}
-                onAccept={handleAcceptDelivery}
-                disabled={!canAcceptTasks}
-                disabledTooltip="Your account is currently under review by an Admin. You will be able to accept tasks once your ID is verified."
-              />
-            </div>
+          {/* ── Available Deliveries (Real Data) ──────── */}
+          <div className="lg:col-span-2">
+            <Card className="border-2 border-primary/30">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Available Pickups ({availableDeliveries.length})</span>
+                  <Leaf className="h-5 w-5 text-primary" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {deliveriesLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="ml-2 text-muted-foreground">Loading deliveries...</span>
+                  </div>
+                ) : availableDeliveries.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Bell className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+                    <p className="font-semibold text-lg">No Active Tasks Available</p>
+                    <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
+                      No active food rescue tasks available right now. We will notify you when a match is found.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {availableDeliveries.map((delivery) => (
+                      <div
+                        key={delivery.id}
+                        className="border rounded-lg p-4 hover:border-primary/50 transition-all"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-bold text-lg">
+                                {delivery.food_type?.replace('_', ' ') || 'Food Pickup'}
+                              </h3>
+                              <Badge variant="outline" className="text-xs">
+                                {delivery.quantity_kg} kg
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              From: {delivery.restaurants?.name || 'Unknown Restaurant'}
+                            </p>
+                            {delivery.ngos?.name && (
+                              <p className="text-sm text-muted-foreground">
+                                To: {delivery.ngos.name}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            {new Date(delivery.created_at).toLocaleTimeString('en-IN', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </div>
+                        </div>
 
-            {/* Right: Active Tasks */}
-            <div className="lg:col-span-1">
-              <ActiveTasks
-                donations={donations}
-                onComplete={handleCompleteTask}
-              />
-            </div>
+                        <div className="relative group mt-3">
+                          <Button
+                            onClick={() => handleAcceptDelivery(delivery.id)}
+                            className={`w-full ${!canAcceptTasks ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90'}`}
+                            disabled={!canAcceptTasks}
+                          >
+                            {canAcceptTasks ? 'Accept Delivery' : '🔒 Accept Delivery'}
+                          </Button>
+                          {!canAcceptTasks && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-foreground text-background text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-normal max-w-[280px] text-center shadow-lg z-20">
+                              Your account is currently under review by an Admin. You will be able to accept tasks once your ID is verified.
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-foreground" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ── My Active Tasks (Real Data) ───────────── */}
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-secondary" />
+                  My Active Tasks ({myActiveTasks.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {deliveriesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : myActiveTasks.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CheckCircle2 className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+                    <p className="text-sm font-medium">No Active Tasks</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Accept a delivery to get started!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {myActiveTasks.map((task) => (
+                      <div key={task.id} className="border rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-semibold text-sm">
+                            {task.food_type?.replace('_', ' ') || 'Delivery'}
+                          </span>
+                          <Badge
+                            variant={task.status === 'PICKED' ? 'default' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {task.status}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {task.quantity_kg} kg • From: {task.restaurants?.name || 'Unknown'}
+                        </p>
+                        {task.ngos?.name && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                            <MapPin className="h-3 w-3" /> To: {task.ngos.name}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

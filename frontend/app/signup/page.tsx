@@ -51,12 +51,37 @@ export default function SignupPage() {
     try {
       await signup(email, password, role, name, phone, address);
       setSuccess(true);
-      // Redirect after a brief delay to show success message
-      setTimeout(() => router.push('/'), 1500);
+
+      // Redirect to role-specific dashboard after brief success message
+      const dashboardRoutes: Record<string, string> = {
+        donor: '/dashboard/donor',
+        volunteer: '/dashboard/volunteer',
+        ngo: '/dashboard/ngo',
+      };
+      const targetRoute = dashboardRoutes[role] || '/';
+      setTimeout(() => router.push(targetRoute), 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
+      const message = err instanceof Error ? err.message : 'Registration failed.';
+
+      // Handle duplicate email errors gracefully
+      if (
+        message.toLowerCase().includes('already registered') ||
+        message.toLowerCase().includes('already been registered') ||
+        message.toLowerCase().includes('user already exists') ||
+        message.toLowerCase().includes('duplicate') ||
+        message.toLowerCase().includes('already exists')
+      ) {
+        setError(
+          'This email is already registered. Please log in instead, or use a different email address.'
+        );
+      } else if (message.toLowerCase().includes('password')) {
+        setError('Password is too weak. Please use at least 6 characters with a mix of letters and numbers.');
+      } else {
+        setError(message);
+      }
     }
   };
+
 
   return (
     <div className="min-h-screen flex flex-col">
