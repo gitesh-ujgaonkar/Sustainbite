@@ -26,7 +26,7 @@ ALLOWED_MIME_TYPES = {
     "image/webp",
     "application/pdf",
 }
-MAX_FILE_SIZE_MB = 5
+MAX_FILE_SIZE_MB = 1
 
 STORAGE_BUCKET = "volunteer_ids"
 
