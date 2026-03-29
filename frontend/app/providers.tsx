@@ -257,7 +257,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name,
           address: address || '',
           phone: phone || '',
-          is_active: true,
         };
       } else if (role === 'volunteer') {
         insertPayload = {
@@ -274,7 +273,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name,
           address: address || '',
           phone: phone || '',
-          is_active: true,
         };
       }
 

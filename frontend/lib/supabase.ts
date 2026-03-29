@@ -1,30 +1,24 @@
 /**
- * Supabase Client — Frontend (Lazy Initialized)
+ * Supabase Client — Frontend (Crash-Safe)
  *
  * Uses NEXT_PUBLIC_ env vars (safe for browser).
- * Client is created lazily to avoid build-time errors when
- * env vars aren't available during Next.js static generation.
+ * If env vars are missing (e.g. during build or misconfigured deploy),
+ * the client is still created but operations will fail gracefully
+ * instead of crashing the entire app on load.
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-let _client: SupabaseClient | null = null;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
-    get(_target, prop) {
-        if (!_client) {
-            const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-            const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// Flag to check if Supabase is properly configured
+export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
-            if (!url || !key) {
-                throw new Error(
-                    'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. ' +
-                    'Add them to frontend/.env.local'
-                );
-            }
-
-            _client = createClient(url, key);
-        }
-        return (_client as any)[prop];
-    },
-});
+// Create client with a fallback placeholder URL to prevent crash-on-import.
+// The placeholder will cause API calls to fail with a clear error, but
+// won't crash the app at module load time (which kills SSG builds).
+export const supabase: SupabaseClient = createClient(
+    supabaseUrl || 'https://placeholder.supabase.co',
+    supabaseAnonKey || 'placeholder-key',
+);
