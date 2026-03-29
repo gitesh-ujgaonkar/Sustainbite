@@ -5,15 +5,17 @@ import { Donation } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, MapPin, Leaf, PawPrint, AlertCircle, Zap } from 'lucide-react';
+import { Clock, MapPin, Leaf, PawPrint, AlertCircle, Zap, Lock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface BountyBoardProps {
   donations: Donation[];
   onAccept: (donationId: string) => void;
+  disabled?: boolean;
+  disabledTooltip?: string;
 }
 
-export function BountyBoard({ donations, onAccept }: BountyBoardProps) {
+export function BountyBoard({ donations, onAccept, disabled = false, disabledTooltip }: BountyBoardProps) {
   const [selectedDonation, setSelectedDonation] = useState<string | null>(null);
 
   const availableDonations = donations.filter(d => d.status === 'available');
@@ -47,9 +49,8 @@ export function BountyBoard({ donations, onAccept }: BountyBoardProps) {
             return (
               <div
                 key={donation.id}
-                className={`border rounded-lg p-4 hover:border-primary/50 transition-all cursor-pointer ${
-                  selectedDonation === donation.id ? 'border-primary bg-primary/5' : 'border-border'
-                }`}
+                className={`border rounded-lg p-4 hover:border-primary/50 transition-all cursor-pointer ${selectedDonation === donation.id ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
                 onClick={() => setSelectedDonation(selectedDonation === donation.id ? null : donation.id)}
               >
                 {/* Header */}
@@ -58,7 +59,7 @@ export function BountyBoard({ donations, onAccept }: BountyBoardProps) {
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-bold text-lg">{donation.food_name}</h3>
                       {donation.food_type === 'animal_safe' ? (
-                        <PawPrint className="h-5 w-5 text-orange-500" title="Stray Animal Feed" />
+                        <span title="Stray Animal Feed"><PawPrint className="h-5 w-5 text-orange-500" /></span>
                       ) : (
                         <Leaf className="h-5 w-5 text-primary" />
                       )}
@@ -128,12 +129,28 @@ export function BountyBoard({ donations, onAccept }: BountyBoardProps) {
                       </div>
                     )}
 
-                    <Button
-                      onClick={() => onAccept(donation.id)}
-                      className="w-full bg-primary hover:bg-primary/90"
-                    >
-                      Accept Delivery
-                    </Button>
+                    <div className="relative group">
+                      <Button
+                        onClick={() => onAccept(donation.id)}
+                        className={`w-full ${disabled ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90'}`}
+                        disabled={disabled}
+                      >
+                        {disabled ? (
+                          <>
+                            <Lock className="h-4 w-4 mr-2" />
+                            Accept Delivery
+                          </>
+                        ) : (
+                          'Accept Delivery'
+                        )}
+                      </Button>
+                      {disabled && disabledTooltip && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-foreground text-background text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-normal max-w-[280px] text-center shadow-lg z-20">
+                          {disabledTooltip}
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-foreground" />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

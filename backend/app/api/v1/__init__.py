@@ -7,7 +7,7 @@ exposes them as a single router for mounting in main.py.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, admin, volunteers
+from app.api.v1.endpoints import health, admin, volunteers, deliveries
 
 api_router = APIRouter()
 
@@ -28,3 +28,10 @@ api_router.include_router(
     prefix="/volunteers",
     tags=["Volunteers"],
 )
+
+api_router.include_router(
+    deliveries.router,
+    prefix="/deliveries",
+    tags=["Deliveries"],
+)
+
