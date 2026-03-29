@@ -23,26 +23,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: UserRole;
     profile: Record<string, any>;
   }> => {
-    // Check admins table first (by email)
-    const { data: adminData } = await supabase
+    // Check admins table first (by email OR by auth user id)
+    const { data: adminByEmail, error: adminEmailErr } = await supabase
       .from('admins')
       .select('id, email, name')
       .eq('email', email)
       .maybeSingle();
 
-    if (adminData) {
+    if (adminEmailErr) {
+      console.warn('[Auth] Admin email lookup error:', adminEmailErr.message);
+    }
+
+    if (adminByEmail) {
       return {
         role: 'admin',
-        profile: { name: adminData.name || 'Admin', phone: '', points: 0, green_score: 100 },
+        profile: { name: adminByEmail.name || 'Admin', phone: '', points: 0, green_score: 100 },
+      };
+    }
+
+    // Also check admins by user ID (if admin id = supabase auth user id)
+    const { data: adminById, error: adminIdErr } = await supabase
+      .from('admins')
+      .select('id, email, name')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (adminIdErr) {
+      console.warn('[Auth] Admin ID lookup error:', adminIdErr.message);
+    }
+
+    if (adminById) {
+      return {
+        role: 'admin',
+        profile: { name: adminById.name || 'Admin', phone: '', points: 0, green_score: 100 },
       };
     }
 
     // Check restaurants table
-    const { data: restaurantData } = await supabase
+    const { data: restaurantData, error: restErr } = await supabase
       .from('restaurants')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
+
+    if (restErr) console.warn('[Auth] Restaurant lookup error:', restErr.message);
 
     if (restaurantData) {
       return {
@@ -58,11 +82,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Check volunteers table
-    const { data: volunteerData } = await supabase
+    const { data: volunteerData, error: volErr } = await supabase
       .from('volunteers')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
+
+    if (volErr) console.warn('[Auth] Volunteer lookup error:', volErr.message);
 
     if (volunteerData) {
       return {
@@ -77,11 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Check NGOs table
-    const { data: ngoData } = await supabase
+    const { data: ngoData, error: ngoErr } = await supabase
       .from('ngos')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
+
+    if (ngoErr) console.warn('[Auth] NGO lookup error:', ngoErr.message);
 
     if (ngoData) {
       return {
@@ -97,7 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    // Fallback — no profile found (new user who hasn't completed registration)
+    // Fallback — log the failed lookup for debugging
+    console.error(`[Auth] No profile found for user ${userId} (${email}) in any role table.`);
     throw new Error('No profile found. Please complete your registration or contact support.');
   }, []);
 
