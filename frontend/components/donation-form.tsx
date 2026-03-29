@@ -26,7 +26,7 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
   const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    foodCategory: 'VEG',
+    foodCategory: 'human_veg',
     quantity: '',
     pickupAddress: '',
     expiryTime: '',
@@ -76,7 +76,7 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
         // Reset after 3 seconds on success
         setTimeout(() => {
           setSubmitted(false);
-          setFormData({ foodCategory: 'VEG', quantity: '', pickupAddress: '', expiryTime: '' });
+          setFormData({ foodCategory: 'human_veg', quantity: '', pickupAddress: '', expiryTime: '' });
         }, 3000);
       }
     }
@@ -127,9 +127,9 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
                 <SelectValue placeholder="Select Category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="VEG">Vegetarian (VEG)</SelectItem>
-                <SelectItem value="NON_VEG">Non-Vegetarian (NON_VEG)</SelectItem>
-                <SelectItem value="BAKED_GOODS">Baked Goods (BAKED_GOODS)</SelectItem>
+                <SelectItem value="human_veg">Vegetarian (VEG)</SelectItem>
+                <SelectItem value="human_nonveg">Non-Vegetarian (NON_VEG)</SelectItem>
+                <SelectItem value="animal_safe">Animal Feed / Scraps</SelectItem>
               </SelectContent>
             </Select>
           </div>
