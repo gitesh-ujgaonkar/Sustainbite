@@ -1,20 +1,30 @@
 /**
- * Supabase Client — Frontend
+ * Supabase Client — Frontend (Lazy Initialized)
  *
- * Initialized with NEXT_PUBLIC_ env vars (safe for browser).
- * Uses the anon key — RLS policies control access.
+ * Uses NEXT_PUBLIC_ env vars (safe for browser).
+ * Client is created lazily to avoid build-time errors when
+ * env vars aren't available during Next.js static generation.
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+let _client: SupabaseClient | null = null;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn(
-        '[Supabase] Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. ' +
-        'Storage uploads will fail.'
-    );
-}
+export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
+    get(_target, prop) {
+        if (!_client) {
+            const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+            const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+            if (!url || !key) {
+                throw new Error(
+                    'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. ' +
+                    'Add them to frontend/.env.local'
+                );
+            }
+
+            _client = createClient(url, key);
+        }
+        return (_client as any)[prop];
+    },
+});
