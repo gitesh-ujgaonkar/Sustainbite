@@ -67,60 +67,95 @@ export default function AdminDashboardPage() {
   const [dataLoading, setDataLoading] = useState(true);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
-  // ── Load Real Data from Backend ────────────────────────────
+  // ── Load Real Data from Supabase ───────────────────────────
   const loadDashboardData = useCallback(async () => {
     setDataLoading(true);
 
     try {
-      const headers = {
-        'Content-Type': 'application/json',
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      };
+      // 1. Count restaurants
+      const { count: restCount } = await supabase
+        .from('restaurants')
+        .select('id', { count: 'exact', head: true });
 
-      const [statsRes, feedRes, pendingRes] = await Promise.all([
-        fetch(`${API_BASE}/api/v1/admin/stats`, { headers }),
-        fetch(`${API_BASE}/api/v1/admin/activity-feed?limit=20`, { headers }),
-        fetch(`${API_BASE}/api/v1/admin/pending-volunteers`, { headers }),
-      ]);
+      // 2. Count NGOs
+      const { count: ngoCount } = await supabase
+        .from('ngos')
+        .select('id', { count: 'exact', head: true });
 
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats(statsData);
-      } else {
-        console.error('[Admin] Stats fetch failed:', await statsRes.text());
-      }
+      // 3. Count all volunteers
+      const { count: volCount } = await supabase
+        .from('volunteers')
+        .select('id', { count: 'exact', head: true });
 
-      if (feedRes.ok) {
-        const feedData = await feedRes.json();
-        const formattedFeed = feedData.items.map((row: any) => ({
-          id: row.delivery_id,
-          food_type: row.food_type,
-          quantity_kg: row.quantity_kg,
-          status: row.status,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-          restaurants: { name: row.restaurant_name },
-          ngos: { name: row.ngo_name },
-          volunteers: { name: row.volunteer_name },
-        }));
-        setRecentDeliveries(formattedFeed);
-      } else {
-        console.error('[Admin] Feed fetch failed:', await feedRes.text());
-      }
+      // 4. Count approved volunteers
+      const { count: approvedCount } = await supabase
+        .from('volunteers')
+        .select('id', { count: 'exact', head: true })
+        .eq('approval_status', 'APPROVED');
 
-      if (pendingRes.ok) {
-        const pendingData = await pendingRes.json();
-        setPendingVolunteers(pendingData.volunteers || []);
-      } else {
-        console.error('[Admin] Pending fetch failed:', await pendingRes.text());
-      }
+      // 5. Count pending verifications
+      const { count: pendingCount } = await supabase
+        .from('volunteers')
+        .select('id', { count: 'exact', head: true })
+        .eq('approval_status', 'PENDING');
+
+      // 6. Count all deliveries
+      const { count: totalDel } = await supabase
+        .from('deliveries')
+        .select('id', { count: 'exact', head: true });
+
+      // 7. Count delivered
+      const { count: deliveredCount } = await supabase
+        .from('deliveries')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'DELIVERED');
+
+      // 8. Count in-progress (ASSIGNED + PICKED)
+      const { count: inProgressCount } = await supabase
+        .from('deliveries')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['ASSIGNED', 'PICKED']);
+
+      setStats({
+        total_restaurants: restCount || 0,
+        total_ngos: ngoCount || 0,
+        total_volunteers: volCount || 0,
+        approved_volunteers: approvedCount || 0,
+        pending_verifications: pendingCount || 0,
+        total_deliveries: totalDel || 0,
+        delivered_count: deliveredCount || 0,
+        in_progress_count: inProgressCount || 0,
+      });
+
+      // 9. Recent deliveries (activity feed)
+      const { data: deliveries } = await supabase
+        .from('deliveries')
+        .select(`
+          id, food_type, quantity_kg, status, created_at, updated_at,
+          restaurants(name),
+          ngos(name),
+          volunteers(name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      setRecentDeliveries(deliveries || []);
+
+      // 10. Pending volunteers
+      const { data: pending } = await supabase
+        .from('volunteers')
+        .select('id, name, phone, is_available, green_points, approval_status, id_document_url, created_at')
+        .eq('approval_status', 'PENDING')
+        .order('created_at', { ascending: true });
+
+      setPendingVolunteers(pending || []);
 
     } catch (err) {
       console.error('[Admin] Dashboard data fetch error:', err);
     } finally {
       setDataLoading(false);
     }
-  }, [accessToken]);
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {

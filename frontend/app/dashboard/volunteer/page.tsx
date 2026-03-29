@@ -98,17 +98,17 @@ export default function VolunteerDashboardPage() {
         .order('created_at', { ascending: false })
         .limit(20);
 
-      setAvailableDeliveries((available as any) || []);
+      setAvailableDeliveries(available || []);
 
       // Fetch my active tasks (assigned to me, not delivered)
       const { data: active } = await supabase
         .from('deliveries')
-        .select('id, food_type, quantity_kg, status, created_at, updated_at, volunteer_id, restaurant_id, ngo_id, restaurants(name), ngos(name)')
+        .select('id, food_type, quantity_kg, status, created_at, updated_at, restaurant_id, ngo_id, restaurants(name), ngos(name)')
         .eq('volunteer_id', userId)
         .in('status', ['ASSIGNED', 'PICKED'])
         .order('created_at', { ascending: false });
 
-      setMyActiveTasks((active as any) || []);
+      setMyActiveTasks(active || []);
 
       // Count completed deliveries
       const { count } = await supabase
@@ -196,20 +196,7 @@ export default function VolunteerDashboardPage() {
   };
 
   // ── Loading ────────────────────────────────────────────────
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <Leaf className="h-8 w-8 text-primary" />
-          <p className="text-muted-foreground">Checking authentication...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated || !user || user.role !== 'volunteer') return null;
-
-  if (profileLoading) {
+  if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center gap-4">
@@ -219,6 +206,8 @@ export default function VolunteerDashboardPage() {
       </div>
     );
   }
+
+  if (!isAuthenticated || !user || user.role !== 'volunteer') return null;
 
   return (
     <div className="min-h-screen bg-background">
