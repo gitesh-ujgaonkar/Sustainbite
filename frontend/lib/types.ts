@@ -79,17 +79,29 @@ export const CERTIFICATE_MILESTONES = {
   platinum: { kg: 500, name: 'Platinum Legend' },
 };
 
-// Session/Auth State
+// Session/Auth State (Supabase-powered)
 export interface AuthSession {
   user: User;
-  token: string;
-  expiresAt: number;
+  accessToken: string;
+  refreshToken: string;
 }
 
 // Context Types
 export interface AuthContextType {
   session: AuthSession | null;
-  login: (email: string, password: string, role: UserRole) => Promise<void>;
-  logout: () => void;
+  user: User | null;
+  accessToken: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (
+    email: string,
+    password: string,
+    role: UserRole,
+    name: string,
+    phone?: string,
+    address?: string,
+  ) => Promise<void>;
+  logout: () => Promise<void>;
   isLoading: boolean;
+  isAuthenticated: boolean;
 }
+

@@ -7,16 +7,8 @@ import { useAuth } from '@/app/providers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserRole } from '@/lib/types';
-import { Leaf, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Leaf, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ThemeToggle } from '@/components/theme-toggle';
 
@@ -25,24 +17,23 @@ export default function LoginPage() {
   const { login, isLoading } = useAuth();
 
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<UserRole>('donor');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
+    if (!email || !password) {
+      setError('Please enter your email and password.');
+      return;
+    }
+
     try {
-      // For demo: use any email with password "password"
-      // Real users:
-      // Donor: manager@haldirams-nagpur.com
-      // Volunteer: aarav@example.com
-      // NGO: contact@nagpursevasadan.org
-      // Admin: admin@sustainbite.com
-      await login(email, 'password', role);
+      await login(email, password);
       router.push('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
     }
   };
 
@@ -74,21 +65,6 @@ export default function LoginPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="role">I'm a</Label>
-                <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
-                  <SelectTrigger id="role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="donor">Donor/Restaurant</SelectItem>
-                    <SelectItem value="volunteer">Volunteer</SelectItem>
-                    <SelectItem value="ngo">NGO/Organization</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -100,6 +76,8 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
                     required
+                    autoComplete="email"
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -111,27 +89,35 @@ export default function LoginPage() {
                   <Input
                     id="password"
                     type="password"
-                    placeholder="For demo: 'password'"
-                    defaultValue="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     className="pl-10"
-                    disabled
+                    required
+                    autoComplete="current-password"
+                    disabled={isLoading}
                   />
                 </div>
               </div>
 
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading}>
-                {isLoading ? 'Signing in...' : 'Sign In'}
+              <Button
+                type="submit"
+                className="w-full bg-primary hover:bg-primary/90"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign In'
+                )}
               </Button>
             </form>
 
-            <div className="mt-6 space-y-2 text-sm text-muted-foreground">
-              <p className="font-semibold">Demo Accounts:</p>
-              <ul className="space-y-1 text-xs">
-                <li>Donor: manager@haldirams-nagpur.com</li>
-                <li>Volunteer: aarav@example.com</li>
-                <li>NGO: contact@nagpursevasadan.org</li>
-                <li>Admin: admin@sustainbite.com</li>
-              </ul>
+            <div className="mt-6 text-center text-sm text-muted-foreground">
+              <p>Your role is detected automatically based on your registered profile.</p>
             </div>
 
             <div className="mt-4 text-center text-sm">
