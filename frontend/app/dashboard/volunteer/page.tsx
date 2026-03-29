@@ -13,8 +13,14 @@ import { Button } from '@/components/ui/button';
 import {
   Leaf, Zap, Trophy, TrendingUp, ShieldAlert, ShieldCheck,
   ShieldX, Ban, Clock, MapPin, Package, CheckCircle2,
-  Loader2, Bell,
+  Loader2, Bell, KeyRound
 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 
 // ── Types ────────────────────────────────────────────────────
@@ -58,6 +64,12 @@ export default function VolunteerDashboardPage() {
 
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // OTP Verification Modal State
+  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   // Derived status
   const approvalStatus = volunteerProfile?.approval_status || 'PENDING';
@@ -191,6 +203,73 @@ export default function VolunteerDashboardPage() {
     }
   };
 
+  // ── Handle Delivery Status Update ──────────────────────────
+  const handleUpdateStatus = async (deliveryId: string, newStatus: string) => {
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      const res = await fetch(`${API_BASE}/api/v1/deliveries/${deliveryId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to update status.');
+      }
+
+      showToast(`Delivery status updated to ${newStatus}.`);
+      if (user) fetchDeliveries(user.id);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update status.');
+    }
+  };
+
+  // ── Handle OTP Verification ────────────────────────────────
+  const handleVerifyOTP = async () => {
+    if (!selectedDeliveryId || !otpCode || otpCode.length !== 6) {
+      showToast("Please enter a valid 6-digit OTP code.");
+      return;
+    }
+
+    setVerifying(true);
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      const res = await fetch(`${API_BASE}/api/v1/deliveries/${selectedDeliveryId}/verify-pickup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ otp: otpCode }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to verify OTP.');
+      }
+
+      showToast("Pickup verified successfully! Task is now IN TRANSIT.");
+      setVerifyModalOpen(false);
+      setOtpCode('');
+      setSelectedDeliveryId(null);
+      if (user) fetchDeliveries(user.id);
+    } catch (err: any) {
+      showToast(err.message || "Invalid OTP code. Please try again.");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   // ── KYC Upload Success ─────────────────────────────────────
   const handleUploadComplete = () => {
     if (user) fetchProfile(user.id);
@@ -225,6 +304,47 @@ export default function VolunteerDashboardPage() {
           </Alert>
         </div>
       )}
+
+      {/* OTP Verification Modal */}
+      <AlertDialog open={verifyModalOpen} onOpenChange={setVerifyModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-primary" />
+              Verify Food Pickup
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Please enter the 6-digit OTP code sent to the restaurant owner's email. This ensures the food has been correctly handed over to you.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4 space-y-2">
+            <Label htmlFor="otp">Pickup OTP</Label>
+            <Input
+              id="otp"
+              type="text"
+              maxLength={6}
+              placeholder="e.g. 123456"
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+              className="text-center text-2xl tracking-[0.3em] font-semibold h-14"
+            />
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <AlertDialogCancel disabled={verifying}>Cancel</AlertDialogCancel>
+            <Button
+              className="bg-primary hover:bg-primary/90"
+              onClick={handleVerifyOTP}
+              disabled={verifying || otpCode.length !== 6}
+            >
+              {verifying ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying</>
+              ) : (
+                'Verify & Pick Up'
+              )}
+            </Button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="container py-8">
 
@@ -510,6 +630,33 @@ export default function VolunteerDashboardPage() {
                             <MapPin className="h-3 w-3" /> To: {task.ngos.name}
                           </p>
                         )}
+                        <div className="mt-3">
+                          {task.status === 'ASSIGNED' && (
+                            <Button
+                              size="sm"
+                              className="w-full bg-primary hover:bg-primary/90"
+                              onClick={() => {
+                                setSelectedDeliveryId(task.id);
+                                setOtpCode('');
+                                setVerifyModalOpen(true);
+                              }}
+                            >
+                              <KeyRound className="h-4 w-4 mr-2" />
+                              Verify Pickup
+                            </Button>
+                          )}
+                          {task.status === 'PICKED' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30"
+                              onClick={() => handleUpdateStatus(task.id, 'DELIVERED')}
+                            >
+                              <CheckCircle2 className="h-4 w-4 mr-2" />
+                              Mark Delivered
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

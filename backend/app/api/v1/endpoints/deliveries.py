@@ -11,6 +11,9 @@ from pydantic import BaseModel
 
 from app.core.security import verify_supabase_token
 from app.core.supabase import get_supabase_client
+from app.core.email import send_otp_email
+import random
+import asyncio
 
 router = APIRouter()
 
@@ -31,7 +34,11 @@ class ClaimDeliveryResponse(BaseModel):
 
 class DeliveryStatusUpdate(BaseModel):
     """Request body for updating delivery status."""
-    status: str  # 'PICKED' or 'DELIVERED'
+    status: str  # 'DELIVERED'
+
+class VerifyPickupRequest(BaseModel):
+    """Request body for verifying pickup via OTP."""
+    otp: str
 
 
 # ── POST /deliveries/claim ───────────────────────────────────
@@ -116,12 +123,15 @@ async def claim_delivery(
             detail="This delivery has already been claimed by another volunteer.",
         )
 
-    # ── Step 4: Assign delivery to volunteer ──────────────────
+    # ── Step 4: Generate OTP and Assign delivery ──────────────
+    otp = f"{random.randint(100000, 999999)}"
+
     result = (
         supabase.table("deliveries")
         .update({
             "volunteer_id": user_id,
             "status": "ASSIGNED",
+            "pickup_otp": otp
         })
         .eq("id", body.delivery_id)
         .execute()
@@ -133,6 +143,16 @@ async def claim_delivery(
             detail="Failed to claim delivery. Please try again.",
         )
 
+    # ── Step 5: Email the Restaurant Owner ────────────────────
+    try:
+        # Get restaurant owner's email. Since restaurant ID = auth user ID in our setup
+        user_res = supabase.auth.admin.get_user_by_id(delivery_record["restaurant_id"])
+        restaurant_email = user_res.user.email
+        if restaurant_email:
+            asyncio.create_task(send_otp_email(restaurant_email, vol_record["name"], otp))
+    except Exception as e:
+        print(f"Failed to fetch restaurant email or send OTP: {e}")
+
     return ClaimDeliveryResponse(
         message=f"Delivery claimed successfully by {vol_record['name']}!",
         delivery_id=body.delivery_id,
@@ -140,14 +160,64 @@ async def claim_delivery(
         status="ASSIGNED",
     )
 
+# ── POST /{delivery_id}/verify-pickup ───────────────────────
+@router.post(
+    "/{delivery_id}/verify-pickup",
+    summary="Verify Food Pickup via OTP",
+    description="Verify the 6-digit OTP provided by the restaurant to transition status from ASSIGNED to PICKED."
+)
+async def verify_pickup(
+    delivery_id: str,
+    body: VerifyPickupRequest,
+    current_user: dict = Depends(verify_supabase_token),
+):
+    supabase = get_supabase_client()
+    user_id = current_user["auth_id"]
+    
+    delivery = (
+        supabase.table("deliveries")
+        .select("id, status, volunteer_id, pickup_otp")
+        .eq("id", delivery_id)
+        .execute()
+    )
+    
+    if not delivery.data:
+        raise HTTPException(status_code=404, detail="Delivery not found.")
+        
+    delivery_record = delivery.data[0]
+    
+    if delivery_record["volunteer_id"] != user_id:
+        raise HTTPException(status_code=403, detail="You can only verify your own deliveries.")
+        
+    if delivery_record["status"] != "ASSIGNED":
+        raise HTTPException(status_code=400, detail="Delivery must be in ASSIGNED state to verify pickup.")
+        
+    if delivery_record["pickup_otp"] != body.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP code. Please check the code and try again.")
+        
+    result = (
+        supabase.table("deliveries")
+        .update({
+            "status": "PICKED",
+            "pickup_otp": None
+        })
+        .eq("id", delivery_id)
+        .execute()
+    )
+    
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to verify pickup.")
+        
+    return {"message": "Pickup verified successfully! Status is now IN TRANSIT (PICKED)."}
+
 
 # ── PATCH /deliveries/{delivery_id}/status ────────────────────
 @router.patch(
     "/{delivery_id}/status",
     summary="Update Delivery Status",
     description=(
-        "Update the status of an assigned delivery (e.g., PICKED → DELIVERED). "
-        "Only the assigned volunteer can update the status."
+        "Update the status of an assigned delivery (e.g., to DELIVERED). "
+        "Only the assigned volunteer can update the status. Note: transition to PICKED must use OTP verification."
     ),
 )
 async def update_delivery_status(
@@ -194,11 +264,11 @@ async def update_delivery_status(
         )
 
     # Update status
-    allowed_statuses = ["PICKED", "DELIVERED"]
+    allowed_statuses = ["DELIVERED"]
     if body.status.upper() not in allowed_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid status. Allowed: {', '.join(allowed_statuses)}",
+            detail=f"Invalid status. Only {', '.join(allowed_statuses)} is allowed directly. Use /verify-pickup for PICKED.",
         )
 
     result = (

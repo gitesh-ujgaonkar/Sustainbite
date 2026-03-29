@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     SUPABASE_ANON_KEY: str = ""
     SUPABASE_SERVICE_KEY: str = ""
 
+    # ── Resend Settings ──────────────────────────────────────
+    RESEND_API_KEY: str = ""
+
     # ── Admin ────────────────────────────────────────────────
     ADMIN_EMAILS: str = "admin@sustainbite.com"
 
