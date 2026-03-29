@@ -23,7 +23,7 @@ class CreateDeliveryRequest(BaseModel):
     """Request body for creating a new delivery."""
     food_type: str
     quantity_kg: float
-    description: str | None = None
+    food_description: str | None = None
     pickup_address: str | None = None
     expiry_time: float | None = None
 
@@ -67,6 +67,7 @@ async def create_delivery(
     data = {
         "restaurant_id": user_id,
         "food_type": body.food_type,
+        "food_description": body.food_description,
         "quantity_kg": body.quantity_kg,
         "status": "AVAILABLE",
     }

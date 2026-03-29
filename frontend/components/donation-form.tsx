@@ -24,6 +24,7 @@ interface DonationFormProps {
 export function DonationForm({ onSubmit }: DonationFormProps) {
   const [isAnimalFeed, setIsAnimalFeed] = useState(false);
   const [isSpicy, setIsSpicy] = useState(false);
+  const [isNonVeg, setIsNonVeg] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -46,9 +47,11 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      let foodType = formData.foodName;
-      if (isAnimalFeed) foodType += " (Animal Feed)";
-      if (isSpicy && !isAnimalFeed) foodType += " (Spicy)";
+      let foodTypeEnum = 'human_veg';
+      if (isAnimalFeed) foodTypeEnum = 'animal_safe';
+      else if (isNonVeg) foodTypeEnum = 'human_nonveg';
+
+      const fullDesc = `${formData.foodName} ${isSpicy ? '(Spicy)' : ''} - ${formData.description}`;
 
       const res = await fetch(`${API_BASE}/api/v1/deliveries/`, {
         method: 'POST',
@@ -57,9 +60,9 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          food_type: foodType,
+          food_type: foodTypeEnum,
           quantity_kg: parseFloat(formData.quantity),
-          description: formData.description,
+          food_description: fullDesc,
           pickup_address: formData.pickupAddress,
           expiry_time: parseFloat(formData.expiryTime || '2'),
         }),
@@ -87,6 +90,7 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
           setFormData({ foodName: '', quantity: '', pickupAddress: '', expiryTime: '', description: '' });
           setIsAnimalFeed(false);
           setIsSpicy(false);
+          setIsNonVeg(false);
         }, 3000);
       }
     }
@@ -194,24 +198,51 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
             </div>
           </div>
 
-          {/* Spice Level - Only for human food */}
+          {/* Spice and Diet Level - Only for human food */}
           {!isAnimalFeed && (
-            <div className="space-y-3">
-              <Label>Spice Level</Label>
-              <div className="flex gap-2">
-                {['Not Spicy', 'Mild', 'Medium', 'Very Spicy'].map((level) => (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <Label>Diet Type</Label>
+                <div className="flex gap-2">
                   <button
-                    key={level}
                     type="button"
-                    onClick={() => setIsSpicy(level !== 'Not Spicy')}
-                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${(level !== 'Not Spicy' ? isSpicy : !isSpicy)
-                        ? 'bg-primary text-primary-foreground'
+                    onClick={() => setIsNonVeg(false)}
+                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${!isNonVeg
+                        ? 'bg-green-600 text-white'
                         : 'bg-muted text-muted-foreground hover:bg-muted'
                       }`}
                   >
-                    {level}
+                    Veg
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => setIsNonVeg(true)}
+                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${isNonVeg
+                        ? 'bg-red-600 text-white'
+                        : 'bg-muted text-muted-foreground hover:bg-muted'
+                      }`}
+                  >
+                    Non-Veg
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <Label>Spice Level</Label>
+                <div className="flex gap-2 flex-wrap">
+                  {['Not Spicy', 'Mild', 'Medium', 'Very Spicy'].map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setIsSpicy(level !== 'Not Spicy')}
+                      className={`px-3 py-2 rounded text-sm font-medium transition-colors ${(level !== 'Not Spicy' ? isSpicy : !isSpicy)
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-muted'
+                        }`}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
