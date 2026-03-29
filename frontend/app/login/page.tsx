@@ -63,13 +63,14 @@ export default function LoginPage() {
   };
 
   // ── Smart Redirect After Login ─────────────────────────────
-  // Once the auth state updates with the user's role, redirect
+  // Once the auth state updates with the user's role (or if already logged in), redirect
   React.useEffect(() => {
-    if (isRedirecting && user?.role) {
+    // If the user is already authenticated and we have their role, push them to the dashboard
+    if (user?.role && !isLoading) {
       const dashboardRoute = DASHBOARD_ROUTES[user.role] || '/';
       router.push(dashboardRoute);
     }
-  }, [isRedirecting, user, router]);
+  }, [user, isLoading, router]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -111,7 +112,7 @@ export default function LoginPage() {
                     className="pl-10"
                     required
                     autoComplete="email"
-                    disabled={isLoading || isRedirecting}
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -129,7 +130,7 @@ export default function LoginPage() {
                     className="pl-10"
                     required
                     autoComplete="current-password"
-                    disabled={isLoading || isRedirecting}
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -137,14 +138,9 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-primary/90"
-                disabled={isLoading || isRedirecting}
+                disabled={isLoading}
               >
-                {isRedirecting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Redirecting to dashboard...
-                  </>
-                ) : isLoading ? (
+                {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Signing in...

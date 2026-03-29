@@ -22,7 +22,20 @@ import { ThemeToggle } from '@/components/theme-toggle';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signup, isLoading } = useAuth();
+  const { signup, isLoading, user } = useAuth();
+
+  React.useEffect(() => {
+    if (user?.role && !isLoading) {
+      const dashboardRoutes: Record<string, string> = {
+        donor: '/dashboard/donor',
+        volunteer: '/dashboard/volunteer',
+        ngo: '/dashboard/ngo',
+        admin: '/dashboard/admin',
+      };
+      const dashboardRoute = dashboardRoutes[user.role] || '/';
+      router.push(dashboardRoute);
+    }
+  }, [user, isLoading, router]);
 
   const [role, setRole] = useState<UserRole>('donor');
   const [name, setName] = useState('');
