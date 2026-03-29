@@ -314,13 +314,15 @@ export default function VolunteerDashboardPage() {
                 Welcome, {volunteerProfile?.name || user.name}!
               </h1>
               <p className="text-muted-foreground mt-2">
-                {!hasUploadedId
-                  ? 'Upload your ID to get started'
-                  : isPending
-                    ? 'Your verification is in progress — browse available pickups below'
-                    : isApproved
-                      ? 'Your Bounty Board is ready'
-                      : 'Please resolve your account status to continue'}
+                {isApproved
+                  ? 'Your Bounty Board is ready'
+                  : isRejected
+                    ? 'Your ID was rejected. Please re-upload your document.'
+                    : isBanned
+                      ? 'Your account has been suspended.'
+                      : !hasUploadedId
+                        ? 'Upload your ID to get started'
+                        : 'Your verification is in progress — browse available pickups below'}
               </p>
             </div>
             <Link href="/">
