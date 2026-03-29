@@ -19,6 +19,14 @@ router = APIRouter()
 
 
 # ── Request/Response Models ──────────────────────────────────
+class CreateDeliveryRequest(BaseModel):
+    """Request body for creating a new delivery."""
+    food_type: str
+    quantity_kg: float
+    description: str | None = None
+    pickup_address: str | None = None
+    expiry_time: float | None = None
+
 class ClaimDeliveryRequest(BaseModel):
     """Request body for claiming a delivery."""
     delivery_id: str
@@ -39,6 +47,82 @@ class DeliveryStatusUpdate(BaseModel):
 class VerifyPickupRequest(BaseModel):
     """Request body for verifying pickup via OTP."""
     otp: str
+
+
+# ── POST / ───────────────────────────────────────────────────
+@router.post(
+    "/",
+    summary="Create a Food Donation",
+    description="Allows a verified Restaurant user to post a new food donation."
+)
+async def create_delivery(
+    body: CreateDeliveryRequest,
+    current_user: dict = Depends(verify_supabase_token),
+):
+    supabase = get_supabase_client()
+    user_id = current_user["auth_id"]
+    
+    # Optional: Verify user role is donor/restaurant before inserting
+    
+    data = {
+        "restaurant_id": user_id,
+        "food_type": body.food_type,
+        "quantity_kg": body.quantity_kg,
+        "status": "AVAILABLE",
+    }
+    
+    result = (
+        supabase.table("deliveries")
+        .insert(data)
+        .execute()
+    )
+    
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to create donation.")
+        
+    return {"message": "Donation listed successfully!", "delivery": result.data[0]}
+
+
+# ── GET /available ───────────────────────────────────────────
+@router.get(
+    "/available",
+    summary="Get Available Deliveries",
+    description="Returns all deliveries with status AVAILABLE."
+)
+async def get_available_deliveries(
+    current_user: dict = Depends(verify_supabase_token),
+):
+    supabase = get_supabase_client()
+    
+    result = (
+        supabase.table("deliveries")
+        .select("id, food_type, quantity_kg, status, created_at, restaurant_id, restaurants(name)")
+        .eq("status", "AVAILABLE")
+        .execute()
+    )
+    
+    return {"deliveries": result.data}
+
+
+# ── GET / ────────────────────────────────────────────────────
+@router.get(
+    "/",
+    summary="Get All Deliveries",
+    description="Returns all deliveries (Admin use case)."
+)
+async def get_all_deliveries(
+    current_user: dict = Depends(verify_supabase_token),
+):
+    supabase = get_supabase_client()
+    
+    result = (
+        supabase.table("deliveries")
+        .select("*, restaurants(name), ngos(name), volunteers(name)")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    
+    return {"deliveries": result.data}
 
 
 # ── POST /deliveries/claim ───────────────────────────────────
@@ -270,6 +354,24 @@ async def update_delivery_status(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid status. Only {', '.join(allowed_statuses)} is allowed directly. Use /verify-pickup for PICKED.",
         )
+
+    # Calculate Points Reward exactly when finishing delivery
+    if body.status.upper() == "DELIVERED" and delivery.data[0]["status"] != "DELIVERED":
+        quantity = delivery.data[0].get("quantity_kg", 0)
+        points_earned = int(quantity * 10)
+        
+        # We need to fetch current points, then add
+        vol_data = (
+            supabase.table("volunteers")
+            .select("green_points")
+            .eq("id", user_id)
+            .execute()
+        )
+        current_points = vol_data.data[0].get("green_points", 0) if vol_data.data else 0
+        
+        supabase.table("volunteers").update({
+            "green_points": current_points + points_earned
+        }).eq("id", user_id).execute()
 
     result = (
         supabase.table("deliveries")

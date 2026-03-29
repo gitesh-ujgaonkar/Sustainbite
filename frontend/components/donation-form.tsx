@@ -26,6 +26,7 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
   const [isSpicy, setIsSpicy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     foodName: '',
     quantity: '',
@@ -37,24 +38,58 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(null);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const { supabase } = await import('@/lib/supabase');
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-    if (onSubmit) {
-      onSubmit(formData);
+      let foodType = formData.foodName;
+      if (isAnimalFeed) foodType += " (Animal Feed)";
+      if (isSpicy && !isAnimalFeed) foodType += " (Spicy)";
+
+      const res = await fetch(`${API_BASE}/api/v1/deliveries/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          food_type: foodType,
+          quantity_kg: parseFloat(formData.quantity),
+          description: formData.description,
+          pickup_address: formData.pickupAddress,
+          expiry_time: parseFloat(formData.expiryTime || '2'),
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to list donation.');
+      }
+
+      if (onSubmit) {
+        onSubmit(formData);
+      }
+
+      setSubmitted(true);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'An unexpected error occurred.');
+    } finally {
+      setLoading(false);
+
+      if (!errorMsg) {
+        // Reset after 3 seconds on success
+        setTimeout(() => {
+          setSubmitted(false);
+          setFormData({ foodName: '', quantity: '', pickupAddress: '', expiryTime: '', description: '' });
+          setIsAnimalFeed(false);
+          setIsSpicy(false);
+        }, 3000);
+      }
     }
-
-    setSubmitted(true);
-    setLoading(false);
-
-    // Reset after 3 seconds
-    setTimeout(() => {
-      setSubmitted(false);
-      setFormData({ foodName: '', quantity: '', pickupAddress: '', expiryTime: '', description: '' });
-      setIsAnimalFeed(false);
-      setIsSpicy(false);
-    }, 3000);
   };
 
   if (submitted) {
@@ -84,6 +119,13 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {errorMsg && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="ml-2">{errorMsg}</AlertDescription>
+            </Alert>
+          )}
+
           {/* Animal Feed Toggle */}
           <Alert className="bg-secondary/10 border-secondary/30">
             <PawPrint className="h-4 w-4" />
@@ -93,14 +135,12 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
                 <button
                   type="button"
                   onClick={() => setIsAnimalFeed(!isAnimalFeed)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    isAnimalFeed ? 'bg-secondary' : 'bg-muted'
-                  }`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isAnimalFeed ? 'bg-secondary' : 'bg-muted'
+                    }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      isAnimalFeed ? 'translate-x-6' : 'translate-x-1'
-                    }`}
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAnimalFeed ? 'translate-x-6' : 'translate-x-1'
+                      }`}
                   />
                 </button>
               </div>
@@ -164,11 +204,10 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
                     key={level}
                     type="button"
                     onClick={() => setIsSpicy(level !== 'Not Spicy')}
-                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                      (level !== 'Not Spicy' ? isSpicy : !isSpicy)
+                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${(level !== 'Not Spicy' ? isSpicy : !isSpicy)
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted text-muted-foreground hover:bg-muted'
-                    }`}
+                      }`}
                   >
                     {level}
                   </button>
