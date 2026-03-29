@@ -22,18 +22,14 @@ interface DonationFormProps {
 }
 
 export function DonationForm({ onSubmit }: DonationFormProps) {
-  const [isAnimalFeed, setIsAnimalFeed] = useState(false);
-  const [isSpicy, setIsSpicy] = useState(false);
-  const [isNonVeg, setIsNonVeg] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    foodName: '',
+    foodCategory: 'VEG',
     quantity: '',
     pickupAddress: '',
     expiryTime: '',
-    description: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,22 +43,15 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      let foodTypeEnum = 'human_veg';
-      if (isAnimalFeed) foodTypeEnum = 'animal_safe';
-      else if (isNonVeg) foodTypeEnum = 'human_nonveg';
-
-      const fullDesc = `${formData.foodName} ${isSpicy ? '(Spicy)' : ''} - ${formData.description}`;
-
-      const res = await fetch(`${API_BASE}/api/v1/deliveries/`, {
+      const res = await fetch(`${API_BASE}/api/v1/deliveries`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          food_type: foodTypeEnum,
+          food_type: formData.foodCategory,
           quantity_kg: parseFloat(formData.quantity),
-          food_description: fullDesc,
           pickup_address: formData.pickupAddress,
           expiry_time: parseFloat(formData.expiryTime || '2'),
         }),
@@ -87,10 +76,7 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
         // Reset after 3 seconds on success
         setTimeout(() => {
           setSubmitted(false);
-          setFormData({ foodName: '', quantity: '', pickupAddress: '', expiryTime: '', description: '' });
-          setIsAnimalFeed(false);
-          setIsSpicy(false);
-          setIsNonVeg(false);
+          setFormData({ foodCategory: 'VEG', quantity: '', pickupAddress: '', expiryTime: '' });
         }, 3000);
       }
     }
@@ -130,37 +116,22 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
             </Alert>
           )}
 
-          {/* Animal Feed Toggle */}
-          <Alert className="bg-secondary/10 border-secondary/30">
-            <PawPrint className="h-4 w-4" />
-            <AlertDescription>
-              <div className="flex items-center gap-3">
-                <span className="text-sm">Is this food for animals?</span>
-                <button
-                  type="button"
-                  onClick={() => setIsAnimalFeed(!isAnimalFeed)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isAnimalFeed ? 'bg-secondary' : 'bg-muted'
-                    }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAnimalFeed ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                  />
-                </button>
-              </div>
-            </AlertDescription>
-          </Alert>
-
-          {/* Food Name */}
+          {/* Food Category Enum Dropdown */}
           <div className="space-y-2">
-            <Label htmlFor="foodName">Food Name *</Label>
-            <Input
-              id="foodName"
-              placeholder={isAnimalFeed ? 'e.g., Chicken Scraps, Rice Trimmings' : 'e.g., Pizza, Vegetables, Cooked Rice'}
-              value={formData.foodName}
-              onChange={(e) => setFormData({ ...formData, foodName: e.target.value })}
-              required
-            />
+            <Label htmlFor="foodCategory">Food Category *</Label>
+            <Select
+              value={formData.foodCategory}
+              onValueChange={(val) => setFormData({ ...formData, foodCategory: val })}
+            >
+              <SelectTrigger id="foodCategory">
+                <SelectValue placeholder="Select Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="VEG">Vegetarian (VEG)</SelectItem>
+                <SelectItem value="NON_VEG">Non-Vegetarian (NON_VEG)</SelectItem>
+                <SelectItem value="BAKED_GOODS">Baked Goods (BAKED_GOODS)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Quantity */}
@@ -198,54 +169,7 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
             </div>
           </div>
 
-          {/* Spice and Diet Level - Only for human food */}
-          {!isAnimalFeed && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <Label>Diet Type</Label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsNonVeg(false)}
-                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${!isNonVeg
-                        ? 'bg-green-600 text-white'
-                        : 'bg-muted text-muted-foreground hover:bg-muted'
-                      }`}
-                  >
-                    Veg
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsNonVeg(true)}
-                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${isNonVeg
-                        ? 'bg-red-600 text-white'
-                        : 'bg-muted text-muted-foreground hover:bg-muted'
-                      }`}
-                  >
-                    Non-Veg
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <Label>Spice Level</Label>
-                <div className="flex gap-2 flex-wrap">
-                  {['Not Spicy', 'Mild', 'Medium', 'Very Spicy'].map((level) => (
-                    <button
-                      key={level}
-                      type="button"
-                      onClick={() => setIsSpicy(level !== 'Not Spicy')}
-                      className={`px-3 py-2 rounded text-sm font-medium transition-colors ${(level !== 'Not Spicy' ? isSpicy : !isSpicy)
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:bg-muted'
-                        }`}
-                    >
-                      {level}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Strict Enum Handled by Category Dropdown */}
 
           {/* Pickup Address */}
           <div className="space-y-2">
@@ -257,28 +181,6 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
               onChange={(e) => setFormData({ ...formData, pickupAddress: e.target.value })}
               required
             />
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Additional Details (Optional)</Label>
-            <Textarea
-              id="description"
-              placeholder="Any allergies, ingredients, or special handling instructions?"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={3}
-            />
-          </div>
-
-          {/* Image Upload Placeholder */}
-          <div className="space-y-2">
-            <Label>Food Photo (Optional)</Label>
-            <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
-              <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm font-medium">Click to upload or drag and drop</p>
-              <p className="text-xs text-muted-foreground">PNG, JPG up to 5MB</p>
-            </div>
           </div>
 
           {/* Submit */}

@@ -129,18 +129,24 @@ export default function AdminDashboardPage() {
       });
 
       // 9. Recent deliveries (activity feed)
-      const { data: deliveries } = await supabase
-        .from('deliveries')
-        .select(`
-          id, food_type, quantity_kg, status, created_at, updated_at,
-          restaurants(name),
-          ngos(name),
-          volunteers(name)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(20);
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-      setRecentDeliveries(deliveries || []);
+      const delivRes = await fetch(`${API_BASE}/api/v1/deliveries`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
+      let deliveries = [];
+      if (delivRes.ok) {
+        const delivData = await delivRes.json();
+        deliveries = delivData.deliveries || [];
+      } else {
+        console.error('[Admin] Failed to fetch deliveries via API');
+      }
+
+      setRecentDeliveries(deliveries);
 
       // 10. Pending volunteers
       const { data: pending } = await supabase

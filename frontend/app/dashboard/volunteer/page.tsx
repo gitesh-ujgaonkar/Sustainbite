@@ -102,16 +102,25 @@ export default function VolunteerDashboardPage() {
   const fetchDeliveries = useCallback(async (userId: string) => {
     setDeliveriesLoading(true);
     try {
-      // Fetch available deliveries (not yet claimed)
-      const { data: available } = await supabase
-        .from('deliveries')
-        .select('id, food_type, quantity_kg, status, created_at, updated_at, volunteer_id, restaurant_id, ngo_id, restaurants(name), ngos(name)')
-        .eq('status', 'AVAILABLE')
-        .is('volunteer_id', null)
-        .order('created_at', { ascending: false })
-        .limit(20);
+      // Fetch available deliveries (not yet claimed) via Backend API
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-      setAvailableDeliveries((available as any) || []);
+      const availRes = await fetch(`${API_BASE}/api/v1/deliveries/available`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
+      let available = [];
+      if (availRes.ok) {
+        const availData = await availRes.json();
+        available = availData.deliveries || [];
+      } else {
+        console.error('[Volunteer] Failed to fetch available deliveries via API');
+      }
+
+      setAvailableDeliveries(available);
 
       // Fetch my active tasks (assigned to me, not delivered)
       const { data: active } = await supabase
