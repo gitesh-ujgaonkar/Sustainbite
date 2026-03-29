@@ -20,6 +20,8 @@ class Settings(BaseSettings):
         DEBUG: Enable debug mode (verbose logging, auto-reload).
         SUPABASE_URL: Supabase project URL.
         SUPABASE_ANON_KEY: Supabase anonymous/public API key.
+        SUPABASE_SERVICE_KEY: Supabase service_role key (bypasses RLS).
+        ADMIN_EMAILS: Comma-separated fallback list of admin emails.
         CORS_ORIGINS: Comma-separated list of allowed CORS origins.
     """
 
@@ -39,6 +41,10 @@ class Settings(BaseSettings):
     # ── Supabase ─────────────────────────────────────────────
     SUPABASE_URL: str = ""
     SUPABASE_ANON_KEY: str = ""
+    SUPABASE_SERVICE_KEY: str = ""
+
+    # ── Admin ────────────────────────────────────────────────
+    ADMIN_EMAILS: str = "admin@sustainbite.com"
 
     # ── CORS ─────────────────────────────────────────────────
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
@@ -48,5 +54,11 @@ class Settings(BaseSettings):
         """Parse comma-separated CORS origins into a list."""
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
+    @property
+    def admin_emails_list(self) -> list[str]:
+        """Parse comma-separated admin emails into a list."""
+        return [email.strip().lower() for email in self.ADMIN_EMAILS.split(",") if email.strip()]
+
 
 settings = Settings()
+
