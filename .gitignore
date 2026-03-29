@@ -3,9 +3,32 @@ __v0_runtime_loader.js
 __v0_devtools.tsx
 __v0_jsx-dev-runtime.ts
 
-# Common ignores
+# ── Frontend (Node.js / Next.js) ────────────────────────────
 node_modules/
 .next/
-.env*.local
-.DS_Store
 .vercel
+.DS_Store
+
+# ── Backend (Python / FastAPI) ──────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# ── Environment Variables ───────────────────────────────────
+.env
+.env*.local
+
+# ── IDE ─────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
