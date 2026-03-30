@@ -102,14 +102,21 @@ export function DonationLogs({ donations }: DonationLogsProps) {
                   )}
                 </div>
 
-                {/* Remarks special indicator */}
-                {donation.restaurant_remark && (
-                  <div className="mt-2">
+                {/* Special Indicators */}
+                <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-border/50">
+                  {donation.status === 'ASSIGNED' && donation.pickup_otp && (
+                    <div className="w-full mb-1">
+                      <span className="inline-flex items-center gap-1.5 font-mono bg-amber-500/20 text-amber-600 dark:text-amber-500 px-3 py-1.5 rounded-md text-sm font-bold border border-amber-500/30">
+                        🔑 Pickup OTP: {donation.pickup_otp}
+                      </span>
+                    </div>
+                  )}
+                  {donation.restaurant_remark && (
                     <Badge variant="outline" className="text-xs border-amber-200 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-200">
                       ℹ️ {donation.restaurant_remark}
                     </Badge>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             );
           })}

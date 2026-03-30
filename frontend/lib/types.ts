@@ -39,6 +39,7 @@ export interface Donation {
   status: 'AVAILABLE' | 'ASSIGNED' | 'PICKED' | 'DELIVERED';
   cooked_time?: string;
   restaurant_remark?: string;
+  pickup_otp?: string;
   volunteer_id?: string;
   ngo_id?: string;
   created_at: string;
