@@ -564,30 +564,31 @@ export default function AdminDashboardPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <TableRow key={item.id}>
-                      <TableCell className="font-semibold text-sm max-w-[150px] truncate" title={item.dish_name || '—'}>
-                        {item.dish_name || '—'}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {item.restaurants?.name || '—'}
-                      </TableCell>
-                      <TableCell className="text-sm">{item.ngos?.name || '—'}</TableCell>
-                      <TableCell className="text-sm">{item.volunteers?.name || '—'}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className="text-xs">
-                          {item.food_category || '—'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm font-semibold">
-                        {item.quantity_kg}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {getStatusBadge(item.status)}
-                      </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground">
-                        {formatTime(item.updated_at || item.created_at)}
-                      </TableCell>
-                    </TableRow>
+                    {recentDeliveries.map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-semibold text-sm max-w-[150px] truncate" title={item.dish_name || '—'}>
+                          {item.dish_name || '—'}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {item.restaurants?.name || '—'}
+                        </TableCell>
+                        <TableCell className="text-sm">{item.ngos?.name || '—'}</TableCell>
+                        <TableCell className="text-sm">{item.volunteers?.name || '—'}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className="text-xs">
+                            {item.food_category || '—'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm font-semibold">
+                          {item.quantity_kg}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {getStatusBadge(item.status)}
+                        </TableCell>
+                        <TableCell className="text-right text-xs text-muted-foreground">
+                          {formatTime(item.updated_at || item.created_at)}
+                        </TableCell>
+                      </TableRow>
                     ))}
                   </TableBody>
                 </Table>
