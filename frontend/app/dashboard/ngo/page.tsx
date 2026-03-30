@@ -42,7 +42,7 @@ export default function NGODashboardPage() {
       // Get incoming donations for this NGO
       const allDonations = db.getActiveDonations();
       const incomingDonations = allDonations.filter(
-        d => (d.status === 'assigned' || d.status === 'picked') && d.ngo_id === user.id
+        d => (d.status === 'ASSIGNED' || d.status === 'PICKED') && d.ngo_id === user.id
       );
       setDonations(incomingDonations);
 

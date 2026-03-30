@@ -8,6 +8,7 @@ import { DonationForm } from '@/components/donation-form';
 import { DonationLogs } from '@/components/donation-logs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { db } from '@/lib/db_mock';
+import { supabase } from '@/lib/supabase';
 import { Leaf, Trophy, TrendingUp, Award } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -32,8 +33,28 @@ export default function DonorDashboardPage() {
     if (user) {
       const userStats = db.getUserStats(user.id);
       setStats(userStats);
-      const userDonations = db.getDonationsByDonor(user.id);
-      setDonations(userDonations);
+      
+      const fetchDonations = async () => {
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        
+        try {
+          const res = await fetch(`${API_BASE}/api/v1/deliveries/me`, {
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setDonations(data.deliveries || []);
+          }
+        } catch (err) {
+          console.error('[Donor] Failed to fetch donations', err);
+        }
+      };
+      
+      fetchDonations();
     }
   }, [user, isAuthenticated, isLoading, router]);
 
@@ -171,10 +192,9 @@ export default function DonorDashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left: Form */}
           <div className="lg:col-span-1">
-            <DonationForm onSubmit={() => {
-              // Refresh donations
-              if (user) {
-                setDonations(db.getDonationsByDonor(user.id));
+            <DonationForm onSubmit={(newDonation) => {
+              if (newDonation) {
+                setDonations(prev => [newDonation, ...prev]);
               }
             }} />
           </div>

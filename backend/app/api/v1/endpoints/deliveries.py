@@ -133,6 +133,29 @@ async def get_available_deliveries(
     return {"deliveries": valid_deliveries}
 
 
+# ── GET /me ──────────────────────────────────────────────────
+@router.get(
+    "/me",
+    summary="Get My Deliveries",
+    description="Returns all deliveries created by the currently authenticated restaurant."
+)
+async def get_my_deliveries(
+    current_user: dict = Depends(verify_supabase_token),
+):
+    supabase = get_supabase_client()
+    user_id = current_user["auth_id"]
+    
+    result = (
+        supabase.table("deliveries")
+        .select("*, ngos(name), volunteers(name)")
+        .eq("restaurant_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    
+    return {"deliveries": result.data}
+
+
 # ── GET / ────────────────────────────────────────────────────
 @router.get(
     "",

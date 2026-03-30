@@ -29,24 +29,24 @@ export interface User {
   organization_name?: string;
 }
 
-// Donation Record
+// Donation Record (Matches updated Deliveries schema)
 export interface Donation {
   id: string;
-  donor_id: string;
-  food_type: FoodType;
-  food_name: string;
+  restaurant_id: string;
+  dish_name: string;
+  food_category: string;
   quantity_kg: number;
-  status: DonationStatus;
+  status: 'AVAILABLE' | 'ASSIGNED' | 'PICKED' | 'DELIVERED';
+  cooked_time?: string;
+  restaurant_remark?: string;
   volunteer_id?: string;
   ngo_id?: string;
-  pickup_address: string;
-  delivery_address?: string;
-  expiry_time: string;
-  image_url?: string;
-  is_spicy: boolean;
   created_at: string;
-  picked_at?: string;
-  delivered_at?: string;
+  updated_at?: string;
+  
+  // Joined relation fields returned by /api/v1/deliveries/me
+  volunteers?: { name: string };
+  ngos?: { name: string };
 }
 
 // NGO Request Record

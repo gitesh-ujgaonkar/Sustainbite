@@ -102,65 +102,52 @@ export const mockUsers: Record<string, User> = {
 export const mockDonations: Record<string, Donation> = {
   donation1: {
     id: 'donation1',
-    donor_id: 'donor1',
-    food_type: 'human_veg',
-    food_name: 'Poha, Sabudana Vada & Jalebi',
+    restaurant_id: 'donor1',
+    food_category: 'Vegetarian',
+    dish_name: 'Poha, Sabudana Vada & Jalebi',
     quantity_kg: 12,
-    status: 'available',
-    pickup_address: 'Dharampeth, Nagpur, Maharashtra 440010',
-    expiry_time: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+    status: 'AVAILABLE',
     is_spicy: true,
     created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    image_url: '/donations/poha.jpg',
-  },
+    cooked_time: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    restaurant_remark: 'Pickup from front counter.',
+    pickup_address: 'Dharampeth, Nagpur, Maharashtra 440010',
+  } as unknown as Donation, // Using type assertion to mock smoothly since this is a mock db
   donation2: {
     id: 'donation2',
-    donor_id: 'donor2',
-    food_type: 'human_veg',
-    food_name: 'Fresh Oranges & Seasonal Vegetables',
+    restaurant_id: 'donor2',
+    food_category: 'Vegetarian',
+    dish_name: 'Fresh Oranges & Seasonal Vegetables',
     quantity_kg: 8,
-    status: 'assigned',
+    status: 'ASSIGNED',
     volunteer_id: 'volunteer1',
-    pickup_address: 'Shankar Nagar, Nagpur, Maharashtra 440010',
-    delivery_address: 'Mahal, Nagpur, Maharashtra 440002',
-    expiry_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
     is_spicy: false,
     created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    image_url: '/donations/oranges.jpg',
-  },
+    cooked_time: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
+  } as unknown as Donation,
   donation3: {
     id: 'donation3',
-    donor_id: 'donor1',
-    food_type: 'human_nonveg',
-    food_name: 'Saoji Chicken Curry & Bhakri',
+    restaurant_id: 'donor1',
+    food_category: 'Non-Vegetarian',
+    dish_name: 'Saoji Chicken Curry & Bhakri',
     quantity_kg: 5,
-    status: 'picked',
+    status: 'PICKED',
     volunteer_id: 'volunteer2',
-    pickup_address: 'Dharampeth, Nagpur, Maharashtra 440010',
-    picked_at: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    expiry_time: new Date(Date.now() + 1 * 60 * 60 * 1000).toISOString(),
     is_spicy: true,
     created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    image_url: '/donations/saoji.jpg',
-  },
+  } as unknown as Donation,
   donation4: {
     id: 'donation4',
-    donor_id: 'donor2',
-    food_type: 'human_veg',
-    food_name: 'Tarri Poha & Samosa',
+    restaurant_id: 'donor2',
+    food_category: 'Vegetarian',
+    dish_name: 'Tarri Poha & Samosa',
     quantity_kg: 15,
-    status: 'delivered',
+    status: 'DELIVERED',
     volunteer_id: 'volunteer1',
     ngo_id: 'ngo1',
-    pickup_address: 'Shankar Nagar, Nagpur, Maharashtra 440010',
-    delivery_address: 'Mahal, Nagpur, Maharashtra 440002',
-    expiry_time: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
     is_spicy: true,
     created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    picked_at: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
-    delivered_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    image_url: '/donations/tarri-poha.jpg',
-  },
+  } as unknown as Donation,
 };
 
 // Mock NGO Requests Database
@@ -229,12 +216,12 @@ export const db = {
 
   getActiveDonations: (): Donation[] => {
     return Object.values(mockDonations).filter(
-      d => d.status === 'available' || d.status === 'assigned'
+      d => d.status === 'AVAILABLE' || d.status === 'ASSIGNED'
     );
   },
 
   getDonationsByDonor: (donorId: string): Donation[] => {
-    return Object.values(mockDonations).filter(d => d.donor_id === donorId);
+    return Object.values(mockDonations).filter(d => d.restaurant_id === donorId);
   },
 
   getDonationsByVolunteer: (volunteerId: string): Donation[] => {
@@ -274,13 +261,13 @@ export const db = {
   // Stats
   getMealsSavedCount: (): number => {
     return Object.values(mockDonations)
-      .filter(d => d.status === 'delivered')
+      .filter(d => d.status === 'DELIVERED')
       .reduce((sum, d) => sum + d.quantity_kg, 0);
   },
 
   getTotalDonatedByUser: (userId: string): number => {
     return Object.values(mockDonations)
-      .filter(d => d.donor_id === userId)
+      .filter(d => d.restaurant_id === userId)
       .reduce((sum, d) => sum + d.quantity_kg, 0);
   },
 
@@ -288,9 +275,9 @@ export const db = {
     const user = mockUsers[userId];
     if (!user) return null;
 
-    const donations = Object.values(mockDonations).filter(d => d.donor_id === userId);
+    const donations = Object.values(mockDonations).filter(d => d.restaurant_id === userId);
     const totalDonated = donations.reduce((sum, d) => sum + d.quantity_kg, 0);
-    const deliveredCount = donations.filter(d => d.status === 'delivered').length;
+    const deliveredCount = donations.filter(d => d.status === 'DELIVERED').length;
     const certificates = Object.values(mockCertificates).filter(c => c.user_id === userId);
 
     return {

@@ -11,11 +11,11 @@ interface DonationLogsProps {
   donations: Donation[];
 }
 
-const STATUS_CONFIG = {
-  available: { label: 'Available', color: 'bg-green-100 text-green-800', icon: 'search' },
-  assigned: { label: 'Assigned', color: 'bg-blue-100 text-blue-800', icon: 'assigned' },
-  picked: { label: 'Picked Up', color: 'bg-yellow-100 text-yellow-800', icon: 'truck' },
-  delivered: { label: 'Delivered', color: 'bg-purple-100 text-purple-800', icon: 'check' },
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
+  'AVAILABLE': { label: 'Available', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400', icon: 'search' },
+  'ASSIGNED': { label: 'Assigned', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400', icon: 'assigned' },
+  'PICKED': { label: 'Picked Up', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400', icon: 'truck' },
+  'DELIVERED': { label: 'Delivered', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', icon: 'check' },
 };
 
 export function DonationLogs({ donations }: DonationLogsProps) {
@@ -40,62 +40,26 @@ export function DonationLogs({ donations }: DonationLogsProps) {
       <CardContent>
         <div className="space-y-4">
           {donations.map((donation) => {
-            const config = STATUS_CONFIG[donation.status];
-            const timeLeft = new Date(donation.expiry_time).getTime() - Date.now();
-            const isExpiring = timeLeft < 60 * 60 * 1000; // Less than 1 hour
+            const config = STATUS_CONFIG[donation.status] || STATUS_CONFIG['AVAILABLE'];
 
             return (
-              <div key={donation.id} className="border border-border rounded-lg p-4 hover:border-primary/50 transition-colors">
+              <div key={donation.id} className="border border-border rounded-lg p-4 hover:border-primary/50 transition-colors bg-card">
                 {/* Header with status and title */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-semibold">{donation.food_name}</h4>
-                      {donation.food_type === 'animal_safe' && (
-                        <PawPrint className="h-4 w-4 text-orange-500" title="Animal food" />
-                      )}
+                      <h4 className="font-semibold">{donation.dish_name}</h4>
                     </div>
-                    <p className="text-sm text-muted-foreground">{donation.quantity_kg} kg</p>
+                    <p className="text-sm text-muted-foreground">{donation.food_category} • {donation.quantity_kg} kg</p>
                   </div>
-                  <Badge className={config.color}>
+                  <Badge className={config.color} variant="secondary">
                     {config.label}
                   </Badge>
                 </div>
 
                 {/* Details Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                  {/* Pickup Location */}
-                  <div className="text-sm">
-                    <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                      <MapPin className="h-3 w-3" />
-                      <span className="text-xs">Pickup</span>
-                    </div>
-                    <p className="text-xs truncate">{donation.pickup_address}</p>
-                  </div>
-
-                  {/* Volunteer */}
-                  {donation.volunteer_id && (
-                    <div className="text-sm">
-                      <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                        <User className="h-3 w-3" />
-                        <span className="text-xs">Volunteer</span>
-                      </div>
-                      <p className="text-xs">Assigned ✓</p>
-                    </div>
-                  )}
-
-                  {/* Time Left */}
-                  <div className="text-sm">
-                    <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                      <Clock className="h-3 w-3" />
-                      <span className="text-xs">Expires</span>
-                    </div>
-                    <p className={`text-xs ${isExpiring ? 'text-red-600 font-semibold' : ''}`}>
-                      {timeLeft > 0 ? formatDistanceToNow(new Date(donation.expiry_time)) : 'Expired'}
-                    </p>
-                  </div>
-
-                  {/* Created */}
+                  {/* Created At */}
                   <div className="text-sm">
                     <div className="flex items-center gap-1 text-muted-foreground mb-1">
                       <Clock className="h-3 w-3" />
@@ -103,20 +67,49 @@ export function DonationLogs({ donations }: DonationLogsProps) {
                     </div>
                     <p className="text-xs">{formatDistanceToNow(new Date(donation.created_at))} ago</p>
                   </div>
+
+                  {/* Cooked Time */}
+                  <div className="text-sm">
+                    <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                      <Clock className="h-3 w-3" />
+                      <span className="text-xs">Cooked At</span>
+                    </div>
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-500">
+                      {donation.cooked_time ? new Date(donation.cooked_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '—'}
+                    </p>
+                  </div>
+
+                  {/* Volunteer assignment */}
+                  {(donation.volunteer_id || donation.volunteers?.name) && (
+                    <div className="text-sm">
+                      <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                        <User className="h-3 w-3" />
+                        <span className="text-xs">Volunteer</span>
+                      </div>
+                      <p className="text-xs truncate">{donation.volunteers?.name || 'Assigned ✓'}</p>
+                    </div>
+                  )}
+
+                  {/* NGO Assignment */}
+                  {(donation.ngo_id || donation.ngos?.name) && (
+                    <div className="text-sm">
+                      <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                        <MapPin className="h-3 w-3" />
+                        <span className="text-xs">Destination</span>
+                      </div>
+                      <p className="text-xs truncate">{donation.ngos?.name || 'NGO Assigned'}</p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Special Indicators */}
-                <div className="flex flex-wrap gap-2">
-                  {donation.is_spicy && donation.food_type !== 'animal_safe' && (
-                    <Badge variant="outline" className="text-xs">🌶️ Spicy</Badge>
-                  )}
-                  {donation.food_type === 'animal_safe' && (
-                    <Badge variant="outline" className="text-xs">🐾 Stray Feed</Badge>
-                  )}
-                  {isExpiring && (
-                    <Badge variant="destructive" className="text-xs">⚠️ Expires Soon</Badge>
-                  )}
-                </div>
+                {/* Remarks special indicator */}
+                {donation.restaurant_remark && (
+                  <div className="mt-2">
+                    <Badge variant="outline" className="text-xs border-amber-200 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-200">
+                      ℹ️ {donation.restaurant_remark}
+                    </Badge>
+                  </div>
+                )}
               </div>
             );
           })}

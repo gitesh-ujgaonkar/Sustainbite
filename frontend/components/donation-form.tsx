@@ -67,9 +67,10 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || 'Failed to list donation.');
       }
+      const resData = await res.json();
 
       if (onSubmit) {
-        onSubmit(formData);
+        onSubmit(resData.delivery);
       }
 
       setSubmitted(true);
