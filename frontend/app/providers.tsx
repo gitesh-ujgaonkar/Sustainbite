@@ -23,111 +23,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: UserRole;
     profile: Record<string, any>;
   }> => {
-    // Check admins table first (by email OR by auth user id)
-    const { data: adminByEmail, error: adminEmailErr } = await supabase
-      .from('admins')
-      .select('id, email, name')
-      .eq('email', email)
-      .maybeSingle();
+    const [
+      adminByEmailRes,
+      adminByIdRes,
+      restaurantRes,
+      volunteerRes,
+      ngoRes
+    ] = await Promise.allSettled([
+      supabase.from('admins').select('id, email, name').eq('email', email).maybeSingle(),
+      supabase.from('admins').select('id, email, name').eq('id', userId).maybeSingle(),
+      supabase.from('restaurants').select('*').eq('id', userId).maybeSingle(),
+      supabase.from('volunteers').select('*').eq('id', userId).maybeSingle(),
+      supabase.from('ngos').select('*').eq('id', userId).maybeSingle()
+    ]);
 
-    if (adminEmailErr) {
-      console.warn('[Auth] Admin email lookup error:', adminEmailErr.message);
-    }
-
-    if (adminByEmail) {
+    // Admin by Email
+    if (adminByEmailRes.status === 'fulfilled' && adminByEmailRes.value.data) {
       return {
         role: 'admin',
-        profile: { name: adminByEmail.name || 'Admin', phone: '', points: 0, green_score: 100 },
+        profile: { name: adminByEmailRes.value.data.name || 'Admin', phone: '', points: 0, green_score: 100 },
       };
     }
-
-    // Also check admins by user ID (if admin id = supabase auth user id)
-    const { data: adminById, error: adminIdErr } = await supabase
-      .from('admins')
-      .select('id, email, name')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (adminIdErr) {
-      console.warn('[Auth] Admin ID lookup error:', adminIdErr.message);
-    }
-
-    if (adminById) {
+    // Admin by ID
+    if (adminByIdRes.status === 'fulfilled' && adminByIdRes.value.data) {
       return {
         role: 'admin',
-        profile: { name: adminById.name || 'Admin', phone: '', points: 0, green_score: 100 },
+        profile: { name: adminByIdRes.value.data.name || 'Admin', phone: '', points: 0, green_score: 100 },
       };
     }
-
-    // Check restaurants table
-    const { data: restaurantData, error: restErr } = await supabase
-      .from('restaurants')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (restErr) console.warn('[Auth] Restaurant lookup error:', restErr.message);
-
-    if (restaurantData) {
+    // Restaurant
+    if (restaurantRes.status === 'fulfilled' && restaurantRes.value.data) {
       return {
         role: 'donor',
         profile: {
-          name: restaurantData.name || '',
-          phone: restaurantData.phone || '',
-          address: restaurantData.address || '',
-          points: restaurantData.green_points || 0,
-          green_score: restaurantData.green_points || 0,
+          name: restaurantRes.value.data.name || '',
+          phone: restaurantRes.value.data.phone || '',
+          address: restaurantRes.value.data.address || '',
+          points: restaurantRes.value.data.green_points || 0,
+          green_score: restaurantRes.value.data.green_points || 0,
         },
       };
     }
-
-    // Check volunteers table
-    const { data: volunteerData, error: volErr } = await supabase
-      .from('volunteers')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (volErr) console.warn('[Auth] Volunteer lookup error:', volErr.message);
-
-    if (volunteerData) {
+    // Volunteer
+    if (volunteerRes.status === 'fulfilled' && volunteerRes.value.data) {
       return {
         role: 'volunteer',
         profile: {
-          name: volunteerData.name || '',
-          phone: volunteerData.phone || '',
-          points: volunteerData.green_points || 0,
-          green_score: volunteerData.green_points || 0,
+          name: volunteerRes.value.data.name || '',
+          phone: volunteerRes.value.data.phone || '',
+          points: volunteerRes.value.data.green_points || 0,
+          green_score: volunteerRes.value.data.green_points || 0,
         },
       };
     }
-
-    // Check NGOs table
-    const { data: ngoData, error: ngoErr } = await supabase
-      .from('ngos')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (ngoErr) console.warn('[Auth] NGO lookup error:', ngoErr.message);
-
-    if (ngoData) {
+    // NGO
+    if (ngoRes.status === 'fulfilled' && ngoRes.value.data) {
       return {
         role: 'ngo',
         profile: {
-          name: ngoData.name || '',
-          phone: ngoData.phone || '',
-          address: ngoData.address || '',
-          organization_name: ngoData.name || '',
+          name: ngoRes.value.data.name || '',
+          phone: ngoRes.value.data.phone || '',
+          address: ngoRes.value.data.address || '',
+          organization_name: ngoRes.value.data.name || '',
           points: 0,
           green_score: 0,
         },
       };
     }
 
-    // Fallback — log the failed lookup for debugging
     console.error(`[Auth] No profile found for user ${userId} (${email}) in any role table.`);
-    throw new Error('No profile found. Please complete your registration or contact support.');
+    throw new Error('No profile found in role tables. User registration incomplete.');
   }, []);
 
   // ── Build Session from Supabase Auth ───────────────────────
@@ -166,14 +131,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initSession = async () => {
       try {
-        const { data: { session: supabaseSession } } = await supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Auth init timeout')), 10000));
+
+        // Race the session lookup against a 10s timeout just in case it hangs
+        const { data: { session: supabaseSession } } = await Promise.race([
+          supabase.auth.getSession(),
+          timeoutPromise
+        ]) as { data: { session: any } };
 
         if (supabaseSession && mounted) {
           const appSession = await buildSession(supabaseSession);
-          setSession(appSession);
+          if (mounted) setSession(appSession);
         }
       } catch (error) {
-        console.error('[Auth] Failed to restore session:', error);
+        console.error('[Auth] Failed to restore session during reload:', error);
       } finally {
         if (mounted) setIsLoading(false);
       }
