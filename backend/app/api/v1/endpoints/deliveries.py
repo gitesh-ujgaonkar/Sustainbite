@@ -25,6 +25,7 @@ class CreateDeliveryRequest(BaseModel):
     dish_name: str
     food_category: str
     quantity_kg: float
+    cooked_time: str
     restaurant_remark: str | None = None
 
 class ClaimDeliveryRequest(BaseModel):
@@ -69,6 +70,7 @@ async def create_delivery(
         "dish_name": body.dish_name,
         "food_category": body.food_category,
         "quantity_kg": body.quantity_kg,
+        "cooked_time": body.cooked_time,
         "restaurant_remark": body.restaurant_remark,
         "status": "AVAILABLE",
     }
@@ -98,7 +100,7 @@ async def get_available_deliveries(
     
     result = (
         supabase.table("deliveries")
-        .select("id, dish_name, food_category, quantity_kg, status, created_at, restaurant_id, restaurants(name)")
+        .select("id, dish_name, food_category, quantity_kg, status, created_at, cooked_time, restaurant_id, restaurants(name)")
         .eq("status", "AVAILABLE")
         .execute()
     )

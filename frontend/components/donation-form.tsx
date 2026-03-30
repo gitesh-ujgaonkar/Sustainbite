@@ -29,6 +29,7 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
     dishName: '',
     foodCategory: 'Vegetarian',
     quantity: '',
+    cookedTime: '',
     restaurantRemark: '',
     pickupAddress: '',
     expiryTime: '',
@@ -55,6 +56,7 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
           dish_name: formData.dishName,
           food_category: formData.foodCategory,
           quantity_kg: parseFloat(formData.quantity),
+          cooked_time: new Date(formData.cookedTime).toISOString(),
           restaurant_remark: formData.restaurantRemark,
           pickup_address: formData.pickupAddress,
           expiry_time: parseFloat(formData.expiryTime || '2'),
@@ -80,7 +82,7 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
         // Reset after 3 seconds on success
         setTimeout(() => {
           setSubmitted(false);
-          setFormData({ dishName: '', foodCategory: 'Vegetarian', quantity: '', restaurantRemark: '', pickupAddress: '', expiryTime: '' });
+          setFormData({ dishName: '', foodCategory: 'Vegetarian', quantity: '', cookedTime: '', restaurantRemark: '', pickupAddress: '', expiryTime: '' });
         }, 3000);
       }
     }
@@ -151,7 +153,7 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
             </Select>
           </div>
 
-          {/* Quantity */}
+          {/* Quantity and Cooked Time */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="quantity">Quantity (kg) *</Label>
@@ -163,6 +165,17 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
                 step="0.5"
                 value={formData.quantity}
                 onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cookedTime">Prepared / Cooked At *</Label>
+              <Input
+                id="cookedTime"
+                type="datetime-local"
+                value={formData.cookedTime}
+                onChange={(e) => setFormData({ ...formData, cookedTime: e.target.value })}
                 required
               />
             </div>

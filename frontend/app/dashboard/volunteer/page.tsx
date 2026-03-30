@@ -42,6 +42,7 @@ interface Delivery {
   status: string;
   is_expiring_soon?: boolean;
   restaurant_remark?: string | null;
+  cooked_time?: string;
   created_at: string;
   updated_at: string | null;
   volunteer_id: string | null;
@@ -135,7 +136,7 @@ export default function VolunteerDashboardPage() {
       // Fetch my active tasks (assigned to me, not delivered)
       const { data: active } = await supabase
         .from('deliveries')
-        .select('id, dish_name, food_category, quantity_kg, status, created_at, updated_at, restaurant_id, ngo_id, restaurant_remark, restaurants(name), ngos(name)')
+        .select('id, dish_name, food_category, quantity_kg, status, cooked_time, created_at, updated_at, restaurant_id, ngo_id, restaurant_remark, restaurants(name), ngos(name)')
         .eq('volunteer_id', userId)
         .in('status', ['ASSIGNED', 'PICKED'])
         .order('created_at', { ascending: false });
@@ -574,8 +575,13 @@ export default function VolunteerDashboardPage() {
                             <p className="text-sm text-muted-foreground mt-1">
                               From: {delivery.restaurants?.name || 'Unknown Restaurant'}
                             </p>
+                            {delivery.cooked_time && (
+                              <p className="text-xs font-semibold text-amber-700 dark:text-amber-500 mt-2 bg-amber-50 dark:bg-amber-950/30 inline-flex px-2 py-1 rounded-sm">
+                                👨‍🍳 Prepared at: {new Date(delivery.cooked_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                              </p>
+                            )}
                             {delivery.ngos?.name && (
-                              <p className="text-sm text-muted-foreground">
+                              <p className="text-sm text-muted-foreground mt-1">
                                 To: {delivery.ngos.name}
                               </p>
                             )}
@@ -655,6 +661,11 @@ export default function VolunteerDashboardPage() {
                         <p className="text-xs text-muted-foreground mt-1 truncate">
                           From: {task.restaurants?.name || 'Unknown'}
                         </p>
+                        {task.cooked_time && (
+                          <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-500 mt-1">
+                            👨‍🍳 Prepared at: {new Date(task.cooked_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                          </p>
+                        )}
                         {task.ngos?.name && (
                           <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                             <MapPin className="h-3 w-3" /> To: {task.ngos.name}
