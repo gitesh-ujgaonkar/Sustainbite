@@ -14,6 +14,7 @@ from app.core.supabase import get_supabase_client
 from app.core.email import send_otp_email
 import random
 import asyncio
+from datetime import datetime, timezone, timedelta
 
 router = APIRouter()
 
@@ -21,10 +22,10 @@ router = APIRouter()
 # ── Request/Response Models ──────────────────────────────────
 class CreateDeliveryRequest(BaseModel):
     """Request body for creating a new delivery."""
-    food_type: str
+    dish_name: str
+    food_category: str
     quantity_kg: float
-    pickup_address: str | None = None
-    expiry_time: float | None = None
+    restaurant_remark: str | None = None
 
 class ClaimDeliveryRequest(BaseModel):
     """Request body for claiming a delivery."""
@@ -65,8 +66,10 @@ async def create_delivery(
     
     data = {
         "restaurant_id": user_id,
-        "food_type": body.food_type,
+        "dish_name": body.dish_name,
+        "food_category": body.food_category,
         "quantity_kg": body.quantity_kg,
+        "restaurant_remark": body.restaurant_remark,
         "status": "AVAILABLE",
     }
     
@@ -95,12 +98,37 @@ async def get_available_deliveries(
     
     result = (
         supabase.table("deliveries")
-        .select("id, food_type, quantity_kg, status, created_at, restaurant_id, restaurants(name)")
+        .select("id, dish_name, food_category, quantity_kg, status, created_at, restaurant_id, restaurants(name)")
         .eq("status", "AVAILABLE")
         .execute()
     )
     
-    return {"deliveries": result.data}
+    now = datetime.now(timezone.utc)
+    valid_deliveries = []
+    for d in result.data:
+        try:
+            # Parse created_at (handling potential Z and missing tz info)
+            created_str = d.get("created_at", "")
+            if created_str.endswith("Z"):
+                created_str = created_str.replace("Z", "+00:00")
+            created = datetime.fromisoformat(created_str)
+            # Ensure timezone awareness
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+                
+            age = now - created
+            
+            if age > timedelta(hours=24):
+                continue  # Exclude strictly aged food > 24h
+                
+            d["is_expiring_soon"] = bool(age > timedelta(hours=12))
+            valid_deliveries.append(d)
+        except Exception:
+            # Fallback for parsing errors
+            d["is_expiring_soon"] = False
+            valid_deliveries.append(d)
+    
+    return {"deliveries": valid_deliveries}
 
 
 # ── GET / ────────────────────────────────────────────────────
@@ -121,6 +149,24 @@ async def get_all_deliveries(
         .execute()
     )
     
+    now = datetime.now(timezone.utc)
+    for d in result.data:
+        if d.get("status") == "AVAILABLE":
+            try:
+                created_str = d.get("created_at", "")
+                if created_str.endswith("Z"):
+                    created_str = created_str.replace("Z", "+00:00")
+                created = datetime.fromisoformat(created_str)
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
+                    
+                age = now - created
+                d["is_expiring_soon"] = bool(age > timedelta(hours=12) and age < timedelta(hours=24))
+            except Exception:
+                d["is_expiring_soon"] = False
+        else:
+            d["is_expiring_soon"] = False
+
     return {"deliveries": result.data}
 
 

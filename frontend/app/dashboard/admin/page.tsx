@@ -32,7 +32,8 @@ interface AggregateStats {
 
 interface DeliveryRow {
   id: string;
-  food_type: string | null;
+  dish_name: string | null;
+  food_category: string | null;
   quantity_kg: number;
   status: string;
   created_at: string;
@@ -552,38 +553,41 @@ export default function AdminDashboardPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Dish</TableHead>
                       <TableHead>Restaurant</TableHead>
                       <TableHead>NGO</TableHead>
                       <TableHead>Volunteer</TableHead>
-                      <TableHead className="text-center">Type</TableHead>
+                      <TableHead className="text-center">Category</TableHead>
                       <TableHead className="text-right">Qty (kg)</TableHead>
                       <TableHead className="text-center">Status</TableHead>
                       <TableHead className="text-right">Time</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {recentDeliveries.map(item => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium text-sm">
-                          {item.restaurants?.name || '—'}
-                        </TableCell>
-                        <TableCell className="text-sm">{item.ngos?.name || '—'}</TableCell>
-                        <TableCell className="text-sm">{item.volunteers?.name || '—'}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="text-xs">
-                            {item.food_type?.replace('_', ' ') || '—'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm font-semibold">
-                          {item.quantity_kg}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {getStatusBadge(item.status)}
-                        </TableCell>
-                        <TableCell className="text-right text-xs text-muted-foreground">
-                          {formatTime(item.updated_at || item.created_at)}
-                        </TableCell>
-                      </TableRow>
+                    <TableRow key={item.id}>
+                      <TableCell className="font-semibold text-sm max-w-[150px] truncate" title={item.dish_name || '—'}>
+                        {item.dish_name || '—'}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {item.restaurants?.name || '—'}
+                      </TableCell>
+                      <TableCell className="text-sm">{item.ngos?.name || '—'}</TableCell>
+                      <TableCell className="text-sm">{item.volunteers?.name || '—'}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="text-xs">
+                          {item.food_category || '—'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm font-semibold">
+                        {item.quantity_kg}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {getStatusBadge(item.status)}
+                      </TableCell>
+                      <TableCell className="text-right text-xs text-muted-foreground">
+                        {formatTime(item.updated_at || item.created_at)}
+                      </TableCell>
+                    </TableRow>
                     ))}
                   </TableBody>
                 </Table>

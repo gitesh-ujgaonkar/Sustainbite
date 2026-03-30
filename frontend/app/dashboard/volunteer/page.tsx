@@ -36,9 +36,12 @@ interface VolunteerProfile {
 
 interface Delivery {
   id: string;
-  food_type: string;
+  dish_name: string;
+  food_category: string;
   quantity_kg: number;
   status: string;
+  is_expiring_soon?: boolean;
+  restaurant_remark?: string | null;
   created_at: string;
   updated_at: string | null;
   volunteer_id: string | null;
@@ -116,6 +119,13 @@ export default function VolunteerDashboardPage() {
       if (availRes.ok) {
         const availData = await availRes.json();
         available = availData.deliveries || [];
+
+        // Prioritize expiring items to always float to the top
+        available.sort((a: any, b: any) => {
+          if (a.is_expiring_soon && !b.is_expiring_soon) return -1;
+          if (!a.is_expiring_soon && b.is_expiring_soon) return 1;
+          return 0;
+        });
       } else {
         console.error('[Volunteer] Failed to fetch available deliveries via API');
       }
@@ -125,7 +135,7 @@ export default function VolunteerDashboardPage() {
       // Fetch my active tasks (assigned to me, not delivered)
       const { data: active } = await supabase
         .from('deliveries')
-        .select('id, food_type, quantity_kg, status, created_at, updated_at, restaurant_id, ngo_id, restaurants(name), ngos(name)')
+        .select('id, dish_name, food_category, quantity_kg, status, created_at, updated_at, restaurant_id, ngo_id, restaurant_remark, restaurants(name), ngos(name)')
         .eq('volunteer_id', userId)
         .in('status', ['ASSIGNED', 'PICKED'])
         .order('created_at', { ascending: false });
@@ -545,15 +555,23 @@ export default function VolunteerDashboardPage() {
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div>
+                            {delivery.is_expiring_soon && (
+                              <Badge variant="destructive" className="mb-2 animate-pulse bg-orange-600 hover:bg-orange-700 text-[10px] uppercase font-bold tracking-wider">
+                                🔥 Might go bad soon! High Priority.
+                              </Badge>
+                            )}
                             <div className="flex items-center gap-2 mb-1">
                               <h3 className="font-bold text-lg">
-                                {delivery.food_type?.replace('_', ' ') || 'Food Pickup'}
+                                {delivery.dish_name || 'Food Pickup'}
                               </h3>
                               <Badge variant="outline" className="text-xs">
                                 {delivery.quantity_kg} kg
                               </Badge>
                             </div>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm font-medium text-muted-foreground">
+                              {delivery.food_category}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">
                               From: {delivery.restaurants?.name || 'Unknown Restaurant'}
                             </p>
                             {delivery.ngos?.name && (
@@ -621,8 +639,8 @@ export default function VolunteerDashboardPage() {
                     {myActiveTasks.map((task) => (
                       <div key={task.id} className="border rounded-lg p-3">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-semibold text-sm">
-                            {task.food_type?.replace('_', ' ') || 'Delivery'}
+                          <span className="font-semibold text-sm truncate max-w-[200px]" title={task.dish_name}>
+                            {task.dish_name || 'Delivery'}
                           </span>
                           <Badge
                             variant={task.status === 'PICKED' ? 'default' : 'secondary'}
@@ -632,7 +650,10 @@ export default function VolunteerDashboardPage() {
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {task.quantity_kg} kg • From: {task.restaurants?.name || 'Unknown'}
+                          {task.food_category} • {task.quantity_kg} kg
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1 truncate">
+                          From: {task.restaurants?.name || 'Unknown'}
                         </p>
                         {task.ngos?.name && (
                           <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">

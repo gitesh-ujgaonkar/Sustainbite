@@ -26,8 +26,10 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
   const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    foodCategory: 'human_veg',
+    dishName: '',
+    foodCategory: 'Vegetarian',
     quantity: '',
+    restaurantRemark: '',
     pickupAddress: '',
     expiryTime: '',
   });
@@ -50,8 +52,10 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          food_type: formData.foodCategory,
+          dish_name: formData.dishName,
+          food_category: formData.foodCategory,
           quantity_kg: parseFloat(formData.quantity),
+          restaurant_remark: formData.restaurantRemark,
           pickup_address: formData.pickupAddress,
           expiry_time: parseFloat(formData.expiryTime || '2'),
         }),
@@ -76,7 +80,7 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
         // Reset after 3 seconds on success
         setTimeout(() => {
           setSubmitted(false);
-          setFormData({ foodCategory: 'human_veg', quantity: '', pickupAddress: '', expiryTime: '' });
+          setFormData({ dishName: '', foodCategory: 'Vegetarian', quantity: '', restaurantRemark: '', pickupAddress: '', expiryTime: '' });
         }, 3000);
       }
     }
@@ -116,6 +120,18 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
             </Alert>
           )}
 
+          {/* Dish Name */}
+          <div className="space-y-2">
+            <Label htmlFor="dishName">Dish or Food Name *</Label>
+            <Input
+              id="dishName"
+              placeholder="e.g., Leftover Pizza, Bagels, Surplus Rice"
+              value={formData.dishName}
+              onChange={(e) => setFormData({ ...formData, dishName: e.target.value })}
+              required
+            />
+          </div>
+
           {/* Food Category Enum Dropdown */}
           <div className="space-y-2">
             <Label htmlFor="foodCategory">Food Category *</Label>
@@ -127,9 +143,10 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
                 <SelectValue placeholder="Select Category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="human_veg">Vegetarian (VEG)</SelectItem>
-                <SelectItem value="human_nonveg">Non-Vegetarian (NON_VEG)</SelectItem>
-                <SelectItem value="animal_safe">Animal Feed / Scraps</SelectItem>
+                <SelectItem value="Vegetarian">Vegetarian</SelectItem>
+                <SelectItem value="Non-Vegetarian">Non-Vegetarian</SelectItem>
+                <SelectItem value="Baked Goods">Baked Goods</SelectItem>
+                <SelectItem value="Animal Feed">Animal Feed</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -180,6 +197,17 @@ export function DonationForm({ onSubmit }: DonationFormProps) {
               value={formData.pickupAddress}
               onChange={(e) => setFormData({ ...formData, pickupAddress: e.target.value })}
               required
+            />
+          </div>
+
+          {/* Restaurant Remarks */}
+          <div className="space-y-2">
+            <Label htmlFor="remark">Additional Handling Instructions (Optional)</Label>
+            <Textarea
+              id="remark"
+              placeholder="Any special pickup details, allergies, or storage conditions..."
+              value={formData.restaurantRemark}
+              onChange={(e) => setFormData({ ...formData, restaurantRemark: e.target.value })}
             />
           </div>
 
