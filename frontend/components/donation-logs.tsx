@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Donation } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, MapPin, User, AlertCircle, Trash2, Edit2, Loader2 } from 'lucide-react';
+import { Clock, MapPin, User, AlertCircle, Trash2, Edit2, Loader2, Eye } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogFooter } from '@/components/ui/alert-dialog';
@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { DeliveryDetailsModal } from './delivery-details-modal';
 
 interface DonationLogsProps {
   donations: Donation[];
@@ -95,35 +96,42 @@ export function DonationLogs({ donations }: DonationLogsProps) {
                       {config.label}
                     </Badge>
                     
-                    {/* Action Buttons (Only visible if AVAILABLE) */}
-                    {donation.status === 'AVAILABLE' && (
-                      <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        
-                        {/* Edit Action */}
-                        <EditDonationDialog donation={donation} />
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive hover:text-destructive-foreground">
-                              {deletingId === donation.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Donation?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to withdraw this food donation? This cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDelete(donation.id)} className="bg-destructive hover:bg-destructive/90 text-white">
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    )}
+                    {/* Action Buttons (Always show Details, only show Edit/Delete if AVAILABLE) */}
+                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                      
+                      <DeliveryDetailsModal donation={donation} trigger={
+                        <Button variant="outline" size="icon" className="h-8 w-8 hover:bg-muted">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      } />
+                      
+                      {donation.status === 'AVAILABLE' && (
+                        <>
+                          <EditDonationDialog donation={donation} />
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                                {deletingId === donation.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Donation?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to withdraw this food donation? This cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(donation.id)} className="bg-destructive hover:bg-destructive/90 text-white">
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
 

@@ -13,22 +13,16 @@ export const metadata: Metadata = {
   title: 'SustainBite - Stop Waste, Feed Hunger',
   description: 'Connect restaurants with surplus food to volunteers and NGOs. Stop food waste while feeding those in need.',
   generator: 'v0.app',
+  manifest: '/favicon_io/site.webmanifest',
   icons: {
     icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
+      { url: '/favicon_io/favicon.ico' },
+      { url: '/favicon_io/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon_io/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
     ],
-    apple: '/apple-icon.png',
+    apple: [
+      { url: '/favicon_io/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
   },
 }
 

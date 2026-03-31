@@ -214,7 +214,7 @@ async def get_available_deliveries(
     
     result = (
         supabase.table("deliveries")
-        .select("id, dish_name, food_category, quantity_kg, status, created_at, cooked_time, restaurant_id, restaurants(name)")
+        .select("id, dish_name, food_category, quantity_kg, status, created_at, cooked_time, restaurant_remark, pickup_address, restaurant_id, restaurants(name, phone)")
         .eq("status", "AVAILABLE")
         .execute()
     )
@@ -261,7 +261,7 @@ async def get_my_deliveries(
     
     result = (
         supabase.table("deliveries")
-        .select("*, ngos(name), volunteers(name)")
+        .select("*, ngos(name, phone), volunteers(name, phone), restaurants(name, phone)")
         .eq("restaurant_id", user_id)
         .order("created_at", desc=True)
         .execute()
@@ -283,7 +283,7 @@ async def get_all_deliveries(
     
     result = (
         supabase.table("deliveries")
-        .select("*, restaurants(name), ngos(name), volunteers(name)")
+        .select("*, restaurants(name, phone), ngos(name, phone), volunteers(name, phone)")
         .order("created_at", desc=True)
         .execute()
     )

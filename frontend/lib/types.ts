@@ -44,10 +44,12 @@ export interface Donation {
   ngo_id?: string;
   created_at: string;
   updated_at?: string;
+  pickup_address?: string;
   
-  // Joined relation fields returned by /api/v1/deliveries/me
-  volunteers?: { name: string };
-  ngos?: { name: string };
+  // Joined relation fields returned by backend
+  volunteers?: { name: string; phone?: string };
+  ngos?: { name: string; phone?: string };
+  restaurants?: { name: string; phone?: string };
 }
 
 // NGO Request Record

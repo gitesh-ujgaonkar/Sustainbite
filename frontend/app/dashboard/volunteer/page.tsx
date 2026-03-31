@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useRealtimeDeliveries } from '@/hooks/useRealtimeDeliveries';
 import { toast } from 'sonner';
+import { DeliveryDetailsModal } from '@/components/delivery-details-modal';
 
 // ── Types ────────────────────────────────────────────────────
 interface VolunteerProfile {
@@ -746,20 +747,27 @@ export default function VolunteerDashboardPage() {
                           </div>
                         </div>
 
-                        <div className="relative group mt-3">
-                          <Button
-                            onClick={() => handleAcceptDelivery(delivery.id)}
-                            className={`w-full ${!canAcceptTasks ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90'}`}
-                            disabled={!canAcceptTasks}
-                          >
-                            {canAcceptTasks ? 'Accept Delivery' : '🔒 Accept Delivery'}
-                          </Button>
-                          {!canAcceptTasks && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-foreground text-background text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-normal max-w-[280px] text-center shadow-lg z-20">
-                              Your account is currently under review by an Admin. You will be able to accept tasks once your ID is verified.
-                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-foreground" />
-                            </div>
-                          )}
+                        <div className="relative group mt-3 flex items-center gap-2">
+                          <DeliveryDetailsModal donation={delivery as any} trigger={
+                            <Button variant="outline" className="w-[120px]">
+                              Details
+                            </Button>
+                          } />
+                          <div className="flex-1">
+                            <Button
+                              onClick={() => handleAcceptDelivery(delivery.id)}
+                              className={`w-full ${!canAcceptTasks ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90'}`}
+                              disabled={!canAcceptTasks}
+                            >
+                              {canAcceptTasks ? 'Accept Delivery' : '🔒 Accept Delivery'}
+                            </Button>
+                            {!canAcceptTasks && (
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-foreground text-background text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-normal max-w-[280px] text-center shadow-lg z-20">
+                                Your account is currently under review by an Admin. You will be able to accept tasks once your ID is verified.
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-foreground" />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -823,6 +831,11 @@ export default function VolunteerDashboardPage() {
                           </p>
                         )}
                         <div className="mt-3 flex flex-col gap-2">
+                          <DeliveryDetailsModal donation={task as any} trigger={
+                            <Button variant="outline" size="sm" className="w-full">
+                              View Complete Details
+                            </Button>
+                          } />
                           {task.status === 'ASSIGNED' && (
                             <Button
                               size="sm"
