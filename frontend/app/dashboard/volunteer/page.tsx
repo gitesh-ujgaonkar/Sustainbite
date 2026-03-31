@@ -18,10 +18,13 @@ import {
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger, AlertDialogFooter
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
+import { useRealtimeDeliveries } from '@/hooks/useRealtimeDeliveries';
+import { toast } from 'sonner';
 
 // ── Types ────────────────────────────────────────────────────
 interface VolunteerProfile {
@@ -204,6 +207,53 @@ export default function VolunteerDashboardPage() {
     }
   }, [user, isAuthenticated, authLoading, router, fetchProfile, fetchDeliveries, fetchStats]);
 
+  // ── Supabase Realtime Hook ──────────────────────────────────
+  useRealtimeDeliveries({
+    enabled: isAuthenticated && user?.role === 'volunteer',
+    onInsert: (payload) => {
+      const newDelivery = payload.new as Delivery;
+      if (newDelivery.status === 'AVAILABLE') {
+        // Automatically inject new active tasks into the UI
+        setAvailableDeliveries((prev) => {
+          // Check if already exists to prevent duplicate renders
+          if (prev.some(d => d.id === newDelivery.id)) return prev;
+          
+          toast.success("🍲 New donation available near you!", {
+            description: `${newDelivery.quantity_kg}kg of ${newDelivery.dish_name || 'food'} was just posted.`,
+            duration: 6000,
+          });
+          
+          return [newDelivery, ...prev];
+        });
+      }
+    },
+    onUpdate: (payload) => {
+      const updatedDelivery = payload.new as Delivery;
+      
+      // If a task is no longer AVAILABLE (e.g. claimed by someone else), remove it from the public pool
+      if (updatedDelivery.status !== 'AVAILABLE') {
+        setAvailableDeliveries((prev) => prev.filter(d => d.id !== updatedDelivery.id));
+      }
+      
+      // If a task assigned specifically to ME is updated (e.g. deleted or marked as delivered), remove it
+      if (updatedDelivery.volunteer_id === user?.id) {
+        if (updatedDelivery.status === 'DELIVERED') {
+          // It was successfully delivered! Remove from active tasks, and optimistic bump count
+          setMyActiveTasks((prev) => prev.filter(d => d.id !== updatedDelivery.id));
+          setCompletedCount(c => c + 1);
+        } else {
+          // General status update, update existing task properties
+          setMyActiveTasks((prev) => prev.map(d => d.id === updatedDelivery.id ? { ...d, ...updatedDelivery } : d));
+        }
+      }
+    },
+    onDelete: (payload) => {
+      const deletedId = payload.old.id;
+      setAvailableDeliveries((prev) => prev.filter(d => d.id !== deletedId));
+      setMyActiveTasks((prev) => prev.filter(d => d.id !== deletedId));
+    }
+  });
+
   // ── Toast ──────────────────────────────────────────────────
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -250,6 +300,36 @@ export default function VolunteerDashboardPage() {
       if (user) fetchDeliveries(user.id);
     } catch (err: any) {
       showToast(err.message || 'Failed to claim delivery.');
+    }
+  };
+
+  // ── Handle Delivery Cancellation (Volunteer Dropout) ─────────
+  const handleCancelDelivery = async (deliveryId: string) => {
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      const res = await fetch(`${API_BASE}/api/v1/deliveries/${deliveryId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to cancel delivery.');
+      }
+
+      showToast("Pickup cancelled! The task was safely returned to the available pool.");
+      
+      // Realtime will catch this, but optimistically removing it helps UX feel snappier
+      setMyActiveTasks(prev => prev.filter(d => d.id !== deliveryId));
+      if (user) fetchDeliveries(user.id);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to cancel delivery.');
     }
   };
 
@@ -742,7 +822,7 @@ export default function VolunteerDashboardPage() {
                             <MapPin className="h-3 w-3" /> To: {task.ngos.name}
                           </p>
                         )}
-                        <div className="mt-3">
+                        <div className="mt-3 flex flex-col gap-2">
                           {task.status === 'ASSIGNED' && (
                             <Button
                               size="sm"
@@ -768,6 +848,36 @@ export default function VolunteerDashboardPage() {
                               Mark Delivered
                             </Button>
                           )}
+                          
+                          {/* Cancel Pickup (Dropping the task safely back to the pool) */}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="w-full text-destructive hover:bg-destructive/10"
+                              >
+                                Cancel Pickup
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Forfeit this task?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you can no longer complete this delivery? There are no point penalties, but the food will be immediately exposed to the public dashboard for another volunteer to claim.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Nevermind</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={() => handleCancelDelivery(task.id)} 
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Yes, Cancel
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
                     ))}

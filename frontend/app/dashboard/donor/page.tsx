@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { Leaf, Trophy, TrendingUp, Award, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { useRealtimeDeliveries } from '@/hooks/useRealtimeDeliveries';
 
 export default function DonorDashboardPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -83,6 +84,35 @@ export default function DonorDashboardPage() {
       fetchDonations();
     }
   }, [user, isAuthenticated, isLoading, router]);
+
+  // ── Supabase Realtime Hook ──────────────────────────────────
+  useRealtimeDeliveries({
+    enabled: isAuthenticated && user?.role === 'donor',
+    onInsert: (payload) => {
+      const newDelivery = payload.new;
+      // Note: We already optimistically insert it on submit.
+      // But just in case they have multiple windows open:
+      if (newDelivery.restaurant_id === user?.id) {
+        setDonations((prev) => {
+          if (prev.some(d => d.id === newDelivery.id)) return prev;
+          return [newDelivery, ...prev];
+        });
+      }
+    },
+    onUpdate: (payload) => {
+      const updatedDelivery = payload.new;
+      // Find the specific task and update it inline, so the Status Badge snaps cleanly
+      if (updatedDelivery.restaurant_id === user?.id) {
+        setDonations((prev) => prev.map(d => 
+          d.id === updatedDelivery.id ? { ...d, ...updatedDelivery } : d
+        ));
+      }
+    },
+    onDelete: (payload) => {
+      const deletedId = payload.old.id;
+      setDonations((prev) => prev.filter(d => d.id !== deletedId));
+    }
+  });
 
   if (isLoading) {
     return (

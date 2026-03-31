@@ -87,6 +87,120 @@ async def create_delivery(
     return {"message": "Donation listed successfully!", "delivery": result.data[0]}
 
 
+# ── DELETE /deliveries/{id} (Soft-Delete) ───────────────────
+@router.delete(
+    "/{delivery_id}",
+    summary="Delete a Delivery (Soft)",
+    description="Soft-deletes a donation (sets status to CANCELLED) if the restaurant owns it and it is still AVAILABLE."
+)
+async def delete_delivery(
+    delivery_id: str,
+    current_user: dict = Depends(verify_supabase_token)
+):
+    supabase = get_supabase_client()
+    user_id = current_user["auth_id"]
+    
+    # Verify ownership and status
+    delivery = supabase.table("deliveries").select("restaurant_id", "status").eq("id", delivery_id).execute()
+    if not delivery.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Delivery not found.")
+        
+    if delivery.data[0]["restaurant_id"] != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not own this donation.")
+        
+    if delivery.data[0]["status"] != "AVAILABLE":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete a donation that has already been claimed.")
+        
+    result = (
+        supabase.table("deliveries")
+        .update({"status": "CANCELLED"})
+        .eq("id", delivery_id)
+        .execute()
+    )
+    
+    return {"message": "Donation cancelled successfully."}
+
+# ── PATCH /deliveries/{id} (Edit Request) ────────────────────
+class EditDeliveryRequest(BaseModel):
+    dish_name: str | None = None
+    food_category: str | None = None
+    quantity_kg: float | None = None
+    cooked_time: str | None = None
+    restaurant_remark: str | None = None
+
+@router.patch(
+    "/{delivery_id}",
+    summary="Edit a Delivery",
+    description="Allows the restaurant to modify an active AVAILABLE donation."
+)
+async def edit_delivery(
+    delivery_id: str,
+    body: EditDeliveryRequest,
+    current_user: dict = Depends(verify_supabase_token)
+):
+    supabase = get_supabase_client()
+    user_id = current_user["auth_id"]
+    
+    delivery = supabase.table("deliveries").select("restaurant_id", "status").eq("id", delivery_id).execute()
+    if not delivery.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Delivery not found.")
+    
+    if delivery.data[0]["restaurant_id"] != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not own this donation.")
+        
+    if delivery.data[0]["status"] != "AVAILABLE":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot edit a donation that has already been claimed.")
+        
+    update_payload = body.model_dump(exclude_unset=True)
+    if not update_payload:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields provided for update.")
+        
+    result = (
+        supabase.table("deliveries")
+        .update(update_payload)
+        .eq("id", delivery_id)
+        .execute()
+    )
+    
+    return {"message": "Donation updated successfully.", "data": result.data[0]}
+
+# ── POST /deliveries/{id}/cancel (Volunteer Dropout) ─────────
+@router.post(
+    "/{delivery_id}/cancel",
+    summary="Forfeit a Claimed Delivery",
+    description="Quietly returns a claimed delivery back to the public pool."
+)
+async def cancel_delivery_claim(
+    delivery_id: str,
+    current_user: dict = Depends(verify_supabase_token)
+):
+    supabase = get_supabase_client()
+    user_id = current_user["auth_id"]
+    
+    delivery = supabase.table("deliveries").select("volunteer_id", "status").eq("id", delivery_id).execute()
+    if not delivery.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Delivery not found.")
+        
+    if delivery.data[0]["volunteer_id"] != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not assigned to this delivery.")
+        
+    if delivery.data[0]["status"] == "DELIVERED":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot cancel a fully completed delivery.")
+        
+    result = (
+        supabase.table("deliveries")
+        .update({
+            "status": "AVAILABLE",
+            "volunteer_id": None,
+            "pickup_otp": None
+        })
+        .eq("id", delivery_id)
+        .execute()
+    )
+    
+    return {"message": "Pickup successfully cancelled. Donation returned to available pool."}
+
+
 # ── GET /available ───────────────────────────────────────────
 @router.get(
     "/available",

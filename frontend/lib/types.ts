@@ -36,7 +36,7 @@ export interface Donation {
   dish_name: string;
   food_category: string;
   quantity_kg: number;
-  status: 'AVAILABLE' | 'ASSIGNED' | 'PICKED' | 'DELIVERED';
+  status: 'AVAILABLE' | 'ASSIGNED' | 'PICKED' | 'DELIVERED' | 'CANCELLED';
   cooked_time?: string;
   restaurant_remark?: string;
   pickup_otp?: string;

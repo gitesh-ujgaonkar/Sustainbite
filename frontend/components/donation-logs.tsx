@@ -1,11 +1,18 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Donation } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, MapPin, User, PawPrint, AlertCircle } from 'lucide-react';
+import { Clock, MapPin, User, AlertCircle, Trash2, Edit2, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 interface DonationLogsProps {
   donations: Donation[];
@@ -19,13 +26,43 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string
 };
 
 export function DonationLogs({ donations }: DonationLogsProps) {
-  if (donations.length === 0) {
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Filter out cancelled items so they don't clog the active board!
+  const activeDonations = donations.filter(d => d.status !== 'CANCELLED');
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      const res = await fetch(`${API_BASE}/api/v1/deliveries/${id}`, {
+        method: 'DELETE',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to delete donation.');
+      }
+      toast.success('Donation deleted successfully.');
+      // The array updates instantly because of the useRealtimeDeliveries hook catching the UPDATE event (status='CANCELLED')!
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete donation.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  if (activeDonations.length === 0) {
     return (
       <Card>
-        <CardContent className="pt-8 text-center">
+        <CardContent className="pt-8 text-center flex flex-col items-center justify-center min-h-[200px]">
           <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-          <p className="font-semibold">No donations yet</p>
-          <p className="text-sm text-muted-foreground">Your donations will appear here</p>
+          <p className="font-semibold">No active donations</p>
+          <p className="text-sm text-muted-foreground">Your listed donations will appear here</p>
         </CardContent>
       </Card>
     );
@@ -39,11 +76,11 @@ export function DonationLogs({ donations }: DonationLogsProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {donations.map((donation) => {
+          {activeDonations.map((donation) => {
             const config = STATUS_CONFIG[donation.status] || STATUS_CONFIG['AVAILABLE'];
 
             return (
-              <div key={donation.id} className="border border-border rounded-lg p-4 hover:border-primary/50 transition-colors bg-card">
+              <div key={donation.id} className="border border-border rounded-lg p-4 hover:border-primary/50 transition-colors bg-card relative group">
                 {/* Header with status and title */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
@@ -52,9 +89,42 @@ export function DonationLogs({ donations }: DonationLogsProps) {
                     </div>
                     <p className="text-sm text-muted-foreground">{donation.food_category} • {donation.quantity_kg} kg</p>
                   </div>
-                  <Badge className={config.color} variant="secondary">
-                    {config.label}
-                  </Badge>
+                  
+                  <div className="flex flex-col items-end gap-2">
+                    <Badge className={config.color} variant="secondary">
+                      {config.label}
+                    </Badge>
+                    
+                    {/* Action Buttons (Only visible if AVAILABLE) */}
+                    {donation.status === 'AVAILABLE' && (
+                      <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        
+                        {/* Edit Action */}
+                        <EditDonationDialog donation={donation} />
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                              {deletingId === donation.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Donation?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to withdraw this food donation? This cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(donation.id)} className="bg-destructive hover:bg-destructive/90 text-white">
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Details Grid */}
@@ -123,5 +193,118 @@ export function DonationLogs({ donations }: DonationLogsProps) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ── Edit Donation Dialog Component ─────────────────────────────────
+function EditDonationDialog({ donation }: { donation: Donation }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    dishName: donation.dish_name,
+    foodCategory: donation.food_category,
+    quantityKg: donation.quantity_kg.toString(),
+    restaurantRemark: donation.restaurant_remark || ''
+  });
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      const res = await fetch(`${API_BASE}/api/v1/deliveries/${donation.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          dish_name: formData.dishName,
+          food_category: formData.foodCategory,
+          quantity_kg: parseFloat(formData.quantityKg),
+          restaurant_remark: formData.restaurantRemark
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to update donation.');
+      }
+      
+      toast.success('Donation updated successfully.');
+      setOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update donation.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="icon" className="h-8 w-8 text-primary hover:bg-primary/10">
+          <Edit2 className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Edit Donation</DialogTitle>
+          <DialogDescription>
+            Make changes to your listing. Only active AVAILABLE donations can be edited.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleEdit} className="space-y-4 pt-4">
+          <div className="space-y-2">
+            <Label htmlFor="dishName">Dish Name</Label>
+            <Input 
+              id="dishName"
+              value={formData.dishName} 
+              onChange={e => setFormData({ ...formData, dishName: e.target.value })} 
+              required 
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="foodCategory">Food Category</Label>
+            <Input 
+              id="foodCategory"
+              value={formData.foodCategory} 
+              onChange={e => setFormData({ ...formData, foodCategory: e.target.value })} 
+              required 
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="quantityKg">Quantity (kg)</Label>
+            <Input 
+              id="quantityKg"
+              type="number" 
+              step="0.1"
+              min="0.1"
+              value={formData.quantityKg} 
+              onChange={e => setFormData({ ...formData, quantityKg: e.target.value })} 
+              required 
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="restaurantRemark">Instructions for Volunteer (Optional)</Label>
+            <Input 
+              id="restaurantRemark"
+              placeholder="e.g. Come to the back door"
+              value={formData.restaurantRemark} 
+              onChange={e => setFormData({ ...formData, restaurantRemark: e.target.value })} 
+            />
+          </div>
+          <div className="flex justify-end pt-4">
+            <Button type="submit" disabled={loading} className="w-full sm:w-auto">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
