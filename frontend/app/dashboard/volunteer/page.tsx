@@ -169,7 +169,7 @@ export default function VolunteerDashboardPage() {
       // Fetch my active tasks (assigned to me, not delivered)
       const { data: active } = await supabase
         .from('deliveries')
-        .select('id, dish_name, food_category, quantity_kg, status, cooked_time, created_at, updated_at, restaurant_id, ngo_id, restaurant_remark, restaurants(name), ngos(name)')
+        .select('id, dish_name, food_category, quantity_kg, status, cooked_time, created_at, updated_at, restaurant_id, ngo_id, restaurant_remark, pickup_address, restaurants(name, phone), ngos(name, phone)')
         .eq('volunteer_id', userId)
         .in('status', ['ASSIGNED', 'PICKED'])
         .order('created_at', { ascending: false });
