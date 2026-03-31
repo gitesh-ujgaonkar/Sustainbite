@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import {
   Leaf, Zap, Trophy, TrendingUp, ShieldAlert, ShieldCheck,
   ShieldX, Ban, Clock, MapPin, Package, CheckCircle2,
-  Loader2, Bell, KeyRound
+  Loader2, Bell, KeyRound, Award
 } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -61,6 +61,8 @@ export default function VolunteerDashboardPage() {
   const [availableDeliveries, setAvailableDeliveries] = useState<Delivery[]>([]);
   const [myActiveTasks, setMyActiveTasks] = useState<Delivery[]>([]);
   const [completedCount, setCompletedCount] = useState(0);
+  const [stats, setStats] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   // Loading states
   const [profileLoading, setProfileLoading] = useState(true);
@@ -99,6 +101,33 @@ export default function VolunteerDashboardPage() {
       console.error('[Volunteer] Profile fetch error:', err);
     } finally {
       setProfileLoading(false);
+    }
+  }, []);
+
+  // ── Fetch Gamification Stats ───────────────────────────────
+  const fetchStats = useCallback(async (userId: string) => {
+    setStatsLoading(true);
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      
+      const res = await fetch(`${API_BASE}/api/v1/stats/volunteers/me`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setStats({
+          totalDonated: data.total_kg,
+          deliveredCount: data.total_deliveries,
+          points: data.total_points
+        });
+      }
+    } catch (err) {
+      console.error('[Volunteer] Stats fetch error:', err);
+    } finally {
+      setStatsLoading(false);
     }
   }, []);
 
@@ -171,8 +200,9 @@ export default function VolunteerDashboardPage() {
     if (user) {
       fetchProfile(user.id);
       fetchDeliveries(user.id);
+      fetchStats(user.id);
     }
-  }, [user, isAuthenticated, authLoading, router, fetchProfile, fetchDeliveries]);
+  }, [user, isAuthenticated, authLoading, router, fetchProfile, fetchDeliveries, fetchStats]);
 
   // ── Toast ──────────────────────────────────────────────────
   const showToast = (message: string) => {
@@ -308,6 +338,16 @@ export default function VolunteerDashboardPage() {
   }
 
   if (!isAuthenticated || !user || user.role !== 'volunteer') return null;
+
+  // Milestone Math
+  const nextMilestone = [
+    { kg: 50, name: 'Bronze Contributor' },
+    { kg: 100, name: 'Silver Champion' },
+    { kg: 250, name: 'Gold Hero' },
+    { kg: 500, name: 'Platinum Legend' },
+  ].find(m => m.kg > (stats?.totalDonated || 0)) || { kg: 500, name: 'Platinum Legend' };
+
+  const progressPercent = ((stats?.totalDonated || 0) / nextMilestone.kg) * 100;
 
   return (
     <div className="min-h-screen bg-background">
@@ -502,7 +542,9 @@ export default function VolunteerDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{volunteerProfile?.green_points || 0}</div>
+                <div className="text-3xl font-bold">
+                  {statsLoading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : (stats?.points || volunteerProfile?.green_points || 0)}
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">Earned</p>
               </CardContent>
             </Card>
@@ -520,6 +562,35 @@ export default function VolunteerDashboardPage() {
             </Card>
           </div>
         </div>
+
+        {/* ── Gamification Milestone ─────────────────────── */}
+        <Card className="mb-8 border-primary/30 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-primary" />
+              Next Milestone
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">{nextMilestone.name}</span>
+                <span className="text-sm text-muted-foreground">
+                  {statsLoading ? '...' : (stats?.totalDonated || 0)} / {nextMilestone.kg} kg transported
+                </span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-primary to-secondary h-full transition-all duration-500"
+                  style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {Math.max(0, nextMilestone.kg - (stats?.totalDonated || 0))} kg more to earn this badge!
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* ── Main Content ────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

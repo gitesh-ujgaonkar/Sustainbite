@@ -9,7 +9,7 @@ import { DonationLogs } from '@/components/donation-logs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { db } from '@/lib/db_mock';
 import { supabase } from '@/lib/supabase';
-import { Leaf, Trophy, TrendingUp, Award } from 'lucide-react';
+import { Leaf, Trophy, TrendingUp, Award, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -17,6 +17,7 @@ export default function DonorDashboardPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [donations, setDonations] = useState<any[]>([]);
 
   useEffect(() => {
@@ -31,9 +32,34 @@ export default function DonorDashboardPage() {
     }
 
     if (user) {
-      const userStats = db.getUserStats(user.id);
-      setStats(userStats);
+      const fetchStats = async () => {
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        
+        try {
+          const res = await fetch(`${API_BASE}/api/v1/stats/restaurants/me`, {
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setStats({
+              totalDonated: data.total_kg,
+              deliveredCount: data.total_deliveries,
+              points: data.total_points,
+              certificates: []
+            });
+          }
+        } catch (err) {
+          console.error('[Donor] Failed to fetch stats', err);
+        } finally {
+          setStatsLoading(false);
+        }
+      };
       
+      fetchStats();
       const fetchDonations = async () => {
         const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
         const { data: sessionData } = await supabase.auth.getSession();
@@ -110,7 +136,9 @@ export default function DonorDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{stats?.totalDonated || 0}</div>
+                <div className="text-3xl font-bold">
+                  {statsLoading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : (stats?.totalDonated || 0)}
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">kg of food</p>
               </CardContent>
             </Card>
@@ -124,7 +152,9 @@ export default function DonorDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-secondary">{stats?.points || 0}</div>
+                <div className="text-3xl font-bold text-secondary">
+                  {statsLoading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : (stats?.points || 0)}
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">Earned</p>
               </CardContent>
             </Card>
@@ -138,7 +168,9 @@ export default function DonorDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{stats?.deliveredCount || 0}</div>
+                <div className="text-3xl font-bold">
+                  {statsLoading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : (stats?.deliveredCount || 0)}
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">Completed</p>
               </CardContent>
             </Card>
@@ -172,7 +204,7 @@ export default function DonorDashboardPage() {
               <div className="flex items-center justify-between">
                 <span className="font-semibold">{nextMilestone.name}</span>
                 <span className="text-sm text-muted-foreground">
-                  {stats?.totalDonated || 0} / {nextMilestone.kg} kg
+                  {statsLoading ? '...' : (stats?.totalDonated || 0)} / {nextMilestone.kg} kg
                 </span>
               </div>
               <div className="w-full bg-muted rounded-full h-3 overflow-hidden">

@@ -428,20 +428,38 @@ async def update_delivery_status(
     # Calculate Points Reward exactly when finishing delivery
     if body.status.upper() == "DELIVERED" and delivery.data[0]["status"] != "DELIVERED":
         quantity = delivery.data[0].get("quantity_kg", 0)
-        points_earned = int(quantity * 10)
+        restaurant_id = delivery.data[0].get("restaurant_id")
         
-        # We need to fetch current points, then add
+        # Point Calculation Logic
+        donor_points_earned = int(quantity * 10)
+        volunteer_points_earned = int(quantity * 10) + 10 # Flat 10 bonus for transport
+        
+        # 1. Update Volunteer's Points
         vol_data = (
             supabase.table("volunteers")
             .select("green_points")
             .eq("id", user_id)
             .execute()
         )
-        current_points = vol_data.data[0].get("green_points", 0) if vol_data.data else 0
+        current_vol_points = vol_data.data[0].get("green_points", 0) if vol_data.data else 0
         
         supabase.table("volunteers").update({
-            "green_points": current_points + points_earned
+            "green_points": current_vol_points + volunteer_points_earned
         }).eq("id", user_id).execute()
+
+        # 2. Update Restaurant's Points
+        if restaurant_id:
+            rest_data = (
+                supabase.table("restaurants")
+                .select("green_points")
+                .eq("id", restaurant_id)
+                .execute()
+            )
+            current_rest_points = rest_data.data[0].get("green_points", 0) if rest_data.data else 0
+            
+            supabase.table("restaurants").update({
+                "green_points": current_rest_points + donor_points_earned
+            }).eq("id", restaurant_id).execute()
 
     result = (
         supabase.table("deliveries")
