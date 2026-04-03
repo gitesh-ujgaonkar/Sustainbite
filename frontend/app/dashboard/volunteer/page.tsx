@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 import { DeliveryDetailsModal } from '@/components/delivery-details-modal';
 import { downloadCertificate } from '@/lib/download-certificate';
 import { CertificateTemplate } from '@/components/certificate-template';
+import { MyCertificates } from '@/components/my-certificates';
 
 // ── Types ────────────────────────────────────────────────────
 interface VolunteerProfile {
@@ -364,23 +365,8 @@ export default function VolunteerDashboardPage() {
     }
   };
 
-  // ── Handle Certificate Download ────────────────────────────
-  const [downloadingCert, setDownloadingCert] = useState(false);
-
-  const handleDownloadCertificate = async () => {
-    setDownloadingCert(true);
-    try {
-      showToast("Generating high-resolution certificate...");
-      const success = await downloadCertificate('certificate-node', `SustainBite_Certificate_${(user?.name || 'Volunteer').replace(/\s+/g, '_')}.pdf`);
-      if (success) {
-        toast.success("Certificate downloaded securely!");
-      } else {
-        toast.error("Failed to generate certificate.");
-      }
-    } finally {
-      setDownloadingCert(false);
-    }
-  };
+  // ── Dashboard Wide Certificate Context ────────────────────
+  const [selectedCertContext, setSelectedCertContext] = useState<any>(null);
 
   // ── Handle OTP Verification ────────────────────────────────
   const handleVerifyOTP = async () => {
@@ -607,16 +593,7 @@ export default function VolunteerDashboardPage() {
               </p>
             </div>
             <div className="flex gap-2">
-              {stats && stats.totalDonated > 0 && (
-                <Button 
-                  onClick={handleDownloadCertificate}
-                  disabled={downloadingCert}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-                >
-                  {downloadingCert ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Award className="h-4 w-4 mr-2" />}
-                  Download Certificate
-                </Button>
-              )}
+              {/* Generic cert button removed in favor of Vault specific certificates */}
               <Link href="/">
                 <Button variant="outline">Back to Home</Button>
               </Link>
@@ -704,6 +681,20 @@ export default function VolunteerDashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* ── My Certificates Vault ─────────────────────── */}
+        <div className="mb-10">
+          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+            <ShieldCheck className="h-6 w-6 text-emerald-600" />
+            My Digital Certificates
+          </h2>
+          <MyCertificates 
+            userId={user.id} 
+            role="volunteer" 
+            userName={volunteerProfile?.name || user.name || "Volunteer"} 
+            setSelectedCertContext={setSelectedCertContext}
+          />
+        </div>
 
         {/* ── Main Content ────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -934,12 +925,13 @@ export default function VolunteerDashboardPage() {
         </div>
       </div>
       {/* Invisible Certificate DOM Node (Required for async jspdf rendering) */}
-      {stats && user && (
+      {selectedCertContext && user && (
         <CertificateTemplate
           type="volunteer"
           name={volunteerProfile?.name || user.name || "Awesome Volunteer"}
-          quantity_kg={stats.totalDonated}
-          date={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+          quantity_kg={selectedCertContext.milestone_kg}
+          date={new Date(selectedCertContext.issued_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+          certificate_number={selectedCertContext.certificate_number}
         />
       )}
 

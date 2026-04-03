@@ -5,10 +5,11 @@ export interface CertificateTemplateProps {
   name: string;
   quantity_kg: number;
   date: string;
+  certificate_number?: string;
   isPreview?: boolean;
 }
 
-export function CertificateTemplate({ type, name, quantity_kg, date, isPreview = false }: CertificateTemplateProps) {
+export function CertificateTemplate({ type, name, quantity_kg, date, certificate_number, isPreview = false }: CertificateTemplateProps) {
   const title =
     type === 'volunteer'
       ? 'Certificate of Grateful Acknowledgement'
@@ -86,6 +87,13 @@ export function CertificateTemplate({ type, name, quantity_kg, date, isPreview =
                 <span className="text-sm text-gray-500 uppercase tracking-wider mt-2">The Hunger Signal Foundation</span>
               </div>
             </div>
+
+            {/* Official ID Stamp */}
+            {certificate_number && (
+              <div className="absolute bottom-6 right-8 text-xs font-mono text-gray-400 opacity-70 tracking-widest">
+                ID: {certificate_number}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -15,6 +15,7 @@ from app.core.email import send_otp_email
 import random
 import asyncio
 from datetime import datetime, timezone, timedelta
+import uuid
 
 router = APIRouter()
 
@@ -587,6 +588,44 @@ async def update_delivery_status(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update delivery status.",
         )
+
+    # ── PHASE 2: Gamified Milestone Minting ──────────────────────
+    if body.status.upper() == "DELIVERED" and delivery.data[0]["status"] != "DELIVERED":
+        MILESTONES = [50, 100, 250, 500, 1000]
+        restaurant_id = delivery.data[0].get("restaurant_id")
+        
+        # 3. Mint for Volunteer
+        vol_deliveries = supabase.table("deliveries").select("quantity_kg").eq("volunteer_id", user_id).eq("status", "DELIVERED").execute()
+        vol_total_kg = sum(float(d.get("quantity_kg", 0)) for d in vol_deliveries.data) if vol_deliveries.data else 0
+        
+        for milestone in MILESTONES:
+            if vol_total_kg >= milestone:
+                cert_check = supabase.table("certificates").select("id").eq("user_id", user_id).eq("milestone_kg", milestone).execute()
+                if not cert_check.data:
+                    # Issue Certificate!
+                    cert_number = f"HS-VOL-{uuid.uuid4().hex[:8].upper()}"
+                    supabase.table("certificates").insert({
+                        "certificate_number": cert_number,
+                        "user_id": user_id,
+                        "milestone_kg": milestone
+                    }).execute()
+                    
+        # 4. Mint for Restaurant
+        if restaurant_id:
+            rest_deliveries = supabase.table("deliveries").select("quantity_kg").eq("restaurant_id", restaurant_id).eq("status", "DELIVERED").execute()
+            rest_total_kg = sum(float(d.get("quantity_kg", 0)) for d in rest_deliveries.data) if rest_deliveries.data else 0
+            
+            for milestone in MILESTONES:
+                if rest_total_kg >= milestone:
+                    cert_check = supabase.table("certificates").select("id").eq("restaurant_id", restaurant_id).eq("milestone_kg", milestone).execute()
+                    if not cert_check.data:
+                        # Issue Certificate!
+                        cert_number = f"HS-REST-{uuid.uuid4().hex[:8].upper()}"
+                        supabase.table("certificates").insert({
+                            "certificate_number": cert_number,
+                            "restaurant_id": restaurant_id,
+                            "milestone_kg": milestone
+                        }).execute()
 
     return {
         "message": f"Delivery status updated to {body.status.upper()}.",
