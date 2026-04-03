@@ -21,7 +21,7 @@ export function CertificateTemplate({ type, name, quantity_kg, date, certificate
       className={
         isPreview
           ? "w-full flex justify-center items-center p-8 bg-gray-100 min-h-screen"
-          : "absolute -left-[9999px] top-0 pointer-events-none"
+          : "absolute -z-50 opacity-0 pointer-events-none left-[-9999px]"
       }
     >
       <div

@@ -515,7 +515,7 @@ async def update_delivery_status(
     # Verify delivery exists and is assigned to this volunteer
     delivery = (
         supabase.table("deliveries")
-        .select("id, status, volunteer_id")
+        .select("id, status, volunteer_id, restaurant_id, quantity_kg")
         .eq("id", delivery_id)
         .execute()
     )

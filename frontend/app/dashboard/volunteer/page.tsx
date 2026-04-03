@@ -245,6 +245,12 @@ export default function VolunteerDashboardPage() {
           // It was successfully delivered! Remove from active tasks, and optimistic bump count
           setMyActiveTasks((prev) => prev.filter(d => d.id !== updatedDelivery.id));
           setCompletedCount(c => c + 1);
+          
+          // Re-sync Gamification engine (Points & Certificates Vault) explicitly!
+          if (user) {
+            fetchStats(user.id);
+            fetchProfile(user.id);
+          }
         } else {
           // General status update, update existing task properties
           setMyActiveTasks((prev) => prev.map(d => d.id === updatedDelivery.id ? { ...d, ...updatedDelivery } : d));
