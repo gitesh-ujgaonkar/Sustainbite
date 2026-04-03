@@ -28,7 +28,6 @@ import { toast } from 'sonner';
 import { DeliveryDetailsModal } from '@/components/delivery-details-modal';
 import { downloadCertificate } from '@/lib/download-certificate';
 import { CertificateTemplate } from '@/components/certificate-template';
-import { MyCertificates } from '@/components/my-certificates';
 
 // ── Types ────────────────────────────────────────────────────
 interface VolunteerProfile {
@@ -371,9 +370,6 @@ export default function VolunteerDashboardPage() {
     }
   };
 
-  // ── Dashboard Wide Certificate Context ────────────────────
-  const [selectedCertContext, setSelectedCertContext] = useState<any>(null);
-
   // ── Handle OTP Verification ────────────────────────────────
   const handleVerifyOTP = async () => {
     if (!selectedDeliveryId || !otpCode || otpCode.length !== 6) {
@@ -688,19 +684,23 @@ export default function VolunteerDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* ── My Certificates Vault ─────────────────────── */}
-        <div className="mb-10">
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-emerald-600" />
-            My Digital Certificates
-          </h2>
-          <MyCertificates 
-            userId={user.id} 
-            role="volunteer" 
-            userName={volunteerProfile?.name || user.name || "Volunteer"} 
-            setSelectedCertContext={setSelectedCertContext}
-          />
-        </div>
+        {/* ── My Certificates Shortcut ─────────────────────── */}
+        <Card className="mb-8 border-emerald-500/30 bg-emerald-500/5">
+          <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <ShieldCheck className="h-6 w-6 text-emerald-600" />
+                Digital Credential Vault
+              </h2>
+              <p className="text-muted-foreground mt-1 text-sm">View, track, and officially download your earned milestone PDFs.</p>
+            </div>
+            <Link href="/dashboard/certificates">
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 whitespace-nowrap">
+                Open Full Vault
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
 
         {/* ── Main Content ────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -931,13 +931,12 @@ export default function VolunteerDashboardPage() {
         </div>
       </div>
       {/* Invisible Certificate DOM Node (Required for async jspdf rendering) */}
-      {selectedCertContext && user && (
+      {stats && user && (
         <CertificateTemplate
           type="volunteer"
           name={volunteerProfile?.name || user.name || "Awesome Volunteer"}
-          quantity_kg={selectedCertContext.milestone_kg}
-          date={new Date(selectedCertContext.issued_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-          certificate_number={selectedCertContext.certificate_number}
+          quantity_kg={stats.totalDonated}
+          date={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
         />
       )}
 

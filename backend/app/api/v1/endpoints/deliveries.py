@@ -545,9 +545,9 @@ async def update_delivery_status(
         quantity = delivery.data[0].get("quantity_kg", 0)
         restaurant_id = delivery.data[0].get("restaurant_id")
         
-        # Point Calculation Logic
-        donor_points_earned = int(quantity * 10)
-        volunteer_points_earned = int(quantity * 10) + 10 # Flat 10 bonus for transport
+        # Point Calculation Logic (1 point per kg identically)
+        donor_points_earned = int(quantity * 1)
+        volunteer_points_earned = int(quantity * 1)
         
         # 1. Update Volunteer's Points
         vol_data = (

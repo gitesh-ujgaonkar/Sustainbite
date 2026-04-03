@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { Leaf, LogOut, Settings, Home } from 'lucide-react';
+import { Leaf, LogOut, Settings, Home, Award } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 export function Navigation() {
@@ -76,6 +76,12 @@ export function Navigation() {
                     <Link href="/settings/profile">
                       <Settings className="mr-2 h-4 w-4" />
                       Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/certificates">
+                      <Award className="mr-2 h-4 w-4" />
+                      Certificates
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
