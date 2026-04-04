@@ -180,17 +180,18 @@ export default function CertificatesPage() {
             <Card className="h-full flex flex-col bg-slate-100/50 dark:bg-zinc-900 border-2 overflow-hidden shadow-inner">
               {selectedCert ? (
                 <>
-                  <div className="flex-1 p-2 md:p-8 flex items-center justify-center overflow-x-auto">
-                    {/* Scale transform wrapper to visibly mount the strict 1123x794 node into a smaller container */}
-                    <div className="origin-top lg:origin-center scale-[0.4] sm:scale-[0.5] md:scale-[0.6] lg:scale-[0.7] xl:scale-[0.8] transition-transform flex justify-center w-full">
-                      <CertificateTemplate
-                        type={user!.role === 'volunteer' ? 'volunteer' : 'restaurant'}
-                        name={user!.name || "Food Hero"}
-                        quantity_kg={selectedCert.milestone_kg}
-                        date={new Date(selectedCert.issued_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                        certificate_number={selectedCert.certificate_number}
-                        isPreview={true}
-                      />
+                  <div className="flex-1 p-2 md:p-8 flex items-center justify-center">
+                    <div className="w-full overflow-hidden flex justify-center items-center overflow-x-auto">
+                      <div className="origin-top-left scale-[0.3] sm:scale-[0.5] md:scale-75 lg:scale-100">
+                        <CertificateTemplate
+                          type={user!.role === 'volunteer' ? 'volunteer' : 'restaurant'}
+                          name={user!.name || "Food Hero"}
+                          quantity_kg={selectedCert.milestone_kg}
+                          date={new Date(selectedCert.issued_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                          certificate_number={selectedCert.certificate_number}
+                          isPreview={true}
+                        />
+                      </div>
                     </div>
                   </div>
                   

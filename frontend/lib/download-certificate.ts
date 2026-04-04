@@ -1,10 +1,13 @@
 export async function downloadCertificate(elementId: string = 'certificate-node', filename: string = 'Hunger_Signal_Certificate.pdf') {
   try {
-    const node = document.getElementById(elementId);
-    if (!node) {
+    const element = document.getElementById(elementId);
+    if (!element) {
       console.error(`Certificate node with ID ${elementId} not found.`);
       return false;
     }
+
+    // Force React DOM to finish painting complex visual hierarchies
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     // Lazy load the gigantic parsing dependencies ONLY when the user clicks the explicit 'Download' button!
     // This prevents these massive libraries from infecting the global Next.js initial bundle size. 
@@ -12,7 +15,7 @@ export async function downloadCertificate(elementId: string = 'certificate-node'
     const { jsPDF } = await import('jspdf');
 
     // Generate high resolution canvas representation natively mapping DOM rect boundaries globally
-    const canvas = await html2canvas(node, {
+    const canvas = await html2canvas(element, {
       scale: 2, // Double resolution for crisp text printing
       backgroundColor: '#f9fafb', // Match bg-gray-50
       useCORS: true,
