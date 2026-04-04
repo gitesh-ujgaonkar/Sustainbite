@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { Leaf, LogOut, Settings, Home, Award } from 'lucide-react';
+import { Leaf, LogOut, Settings, Home, Award, Trophy } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 export function Navigation() {
@@ -52,6 +52,10 @@ export function Navigation() {
           <ThemeToggle />
           {isAuthenticated ? (
             <>
+              <Link href="/leaderboard" className="text-sm text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 hover:text-emerald-700 transition-colors mr-2">
+                <Trophy className="h-4 w-4" />
+                Leaderboard
+              </Link>
               <Link href={getDashboardRoute()} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Dashboard
               </Link>
@@ -94,6 +98,10 @@ export function Navigation() {
             </>
           ) : (
             <>
+              <Link href="/leaderboard" className="text-sm text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 hover:text-emerald-700 transition-colors mr-2">
+                <Trophy className="h-4 w-4" />
+                Leaderboard
+              </Link>
               <Link href="/login">
                 <Button variant="ghost" size="sm">
                   Login

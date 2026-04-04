@@ -58,3 +58,42 @@ async def get_volunteer_stats(current_user: dict = Depends(verify_supabase_token
         "total_deliveries": total_deliveries,
         "total_kg": total_kg
     }
+
+
+@router.get("/leaderboard", summary="Get Global Impact Leaderboard")
+async def get_global_leaderboard():
+    """
+    Publicly accessible endpoint that securely aggregates top Gamification leaders.
+    Strips all PII (email, phone, etc.) at the REST layer.
+    """
+    supabase = get_supabase_client()
+    
+    try:
+        # Fetch top 10 volunteers explicitly checking strictly public metadata
+        volunteers = (
+            supabase.table("volunteers")
+            .select("id, name, green_points")
+            .order("green_points", desc=True)
+            .limit(10)
+            .execute()
+        )
+        
+        # Fetch top 10 restaurants
+        restaurants = (
+            supabase.table("restaurants")
+            .select("id, name, green_points")
+            .order("green_points", desc=True)
+            .limit(10)
+            .execute()
+        )
+        
+        return {
+            "top_volunteers": volunteers.data if volunteers.data else [],
+            "top_restaurants": restaurants.data if restaurants.data else []
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to aggregate global leaderboard: {str(e)}",
+        )
+
