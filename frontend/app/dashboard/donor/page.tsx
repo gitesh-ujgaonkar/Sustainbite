@@ -46,11 +46,16 @@ export default function DonorDashboardPage() {
           });
           if (res.ok) {
             const data = await res.json();
+            const { count: certCount } = await supabase
+              .from('certificates')
+              .select('*', { count: 'exact', head: true })
+              .eq('restaurant_id', user.id);
+
             setStats({
               totalDonated: data.total_kg,
               deliveredCount: data.total_deliveries,
               points: data.total_points,
-              certificates: []
+              certificates: new Array(certCount || 0)
             });
           }
         } catch (err) {
@@ -220,6 +225,24 @@ export default function DonorDashboardPage() {
             </Card>
           </div>
         </div>
+
+        {/* ── My Certificates Shortcut ─────────────────────── */}
+        <Card className="mb-8 border-emerald-500/30 bg-emerald-500/5">
+          <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Award className="h-6 w-6 text-emerald-600" />
+                Digital Credential Vault
+              </h2>
+              <p className="text-muted-foreground mt-1 text-sm">View, track, and officially download your earned milestone PDFs.</p>
+            </div>
+            <Link href="/dashboard/certificates">
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 whitespace-nowrap">
+                Open Full Vault
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
 
         {/* Next Milestone */}
         <Card className="mb-8 border-primary/30 bg-primary/5">
